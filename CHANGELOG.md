@@ -1,3 +1,20 @@
+## v0.171.1
+
+fix(deps): pin undici 7.29.0 (Dependabot high + 4 medium)
+
+`undici` is a transitive of miniflare (via `@cloudflare/vitest-pool-workers` and
+`wrangler`), not a production Workers runtime dep. Five open Dependabot alerts
+all required `>= 7.29.0` (GHSA-4cwx-7wf7-3272 high; four medium). Miniflare still
+locked 7.28.0, so an npm `overrides` entry forces 7.29.0.
+
+Also refreshes the Cloudflare toolchain already in range:
+`@cloudflare/vitest-pool-workers` 0.18.6 → 0.19.1, `wrangler` → 4.118.0,
+`@cloudflare/workers-types` current. `npm audit` reports 0 vulnerabilities after.
+
+### Code
+- `package.json` -- `overrides.undici = "7.29.0"`; version 0.171.1
+- `package-lock.json` -- undici 7.29.0 throughout the tree
+
 ## v0.171.0
 
 feat(models): Sprint 2 catalog (image + Kimi K3)

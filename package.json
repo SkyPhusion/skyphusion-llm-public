@@ -1,6 +1,6 @@
 {
   "name": "prism",
-  "version": "0.171.0",
+  "version": "0.171.1",
   "description": "Multimodal AI playground on Cloudflare Workers: chat, voice, image/video/music generation, RAG, and web search.",
   "license": "AGPL-3.0-only",
   "author": "Conrad Rockenhaus",
@@ -36,16 +36,19 @@
     "db:migrate:remote": "wrangler d1 execute skyphusion-llm --remote --file=schema.sql"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.19.0",
-    "@cloudflare/workers-types": "^5.20260729.1",
+    "@cloudflare/vitest-pool-workers": "^0.19.1",
+    "@cloudflare/workers-types": "^5.20260804.1",
     "@types/node": "^26.1.2",
     "@vitest/coverage-v8": "^4.1.10",
     "typescript": "^7.0.2",
     "vitest": "^4.1.8",
-    "wrangler": "^4.115.0"
+    "wrangler": "^4.118.0"
   },
   "dependencies": {
     "unpdf": "^1.8.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "overrides": {
+    "undici": "7.29.0"
   }
 }
