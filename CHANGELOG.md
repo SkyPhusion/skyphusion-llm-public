@@ -1,3 +1,16 @@
+## v0.174.1
+
+fix(image): bare-prompt Recraft path (drop style + size)
+
+Recraft V4 / V4.1 return 7003 `invalid_image_type` for
+`style: "digital_illustration"` (and `realistic_image`). V4.1 Pro also
+rejects `size: "1024x1024"`. Live smoke: bare `{ prompt }` returns 200 for
+`recraftv4`, `recraftv4-1`, and `recraftv4-1-pro`.
+
+### Code
+- `src/proxied-image-params.ts` -- recraft: prompt only
+- `tests/proxied-image-params.test.ts` -- pin bare prompt
+
 ## v0.174.0
 
 fix(image): Unified Billing for Grok Imagine (b64_json); OpenAI transparent BYOK carve-out
