@@ -1,3 +1,17 @@
+## v0.174.4
+
+docs: pre-announce README + CLAUDE accuracy pass
+
+- README: drop hard-coded "36 chat models" / "~80 catalog"; point at live
+  `GET /api/models` (~45 chat / ~94 total as of v0.174.3); clean Veo 3.1-only
+  video blurb; streaming mentions Responses + Moonshot.
+- CLAUDE.md: dual AUTH_MODE auth (public session vs Access self-host); route
+  identity note; release checklist requires `gh release create`; fix commit
+  email pointer.
+
+### Code
+- README.md, CLAUDE.md, package.json, CHANGELOG.md
+
 ## v0.174.3
 
 docs: align BYOK carve-out with v0.174; drop deprecated Veo 3 ids

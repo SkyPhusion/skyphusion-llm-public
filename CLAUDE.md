@@ -11,8 +11,8 @@ A multimodal AI playground deployed as a **single Cloudflare Worker** (no framew
 ## Commands
 
 ```bash
-npm run dev              # wrangler dev (local; no Cloudflare Access, user_email='anonymous')
-npm run deploy           # wrangler deploy
+npm run dev              # wrangler dev (local; no Access / no public session by default)
+npm run deploy           # wrangler deploy (local only; prod is tag-gated in CI)
 npm run typecheck        # tsc --noEmit — CI gate; run before pushing
 npm test                 # vitest run (one-shot)
 npm run test:watch       # vitest watch
@@ -55,11 +55,16 @@ Debugging a deployed worker: `npx wrangler tail`. Inspecting a stuck long-runnin
 
 ### Auth
 
-Cloudflare Access gates the whole worker URL. The worker trusts `Cf-Access-Authenticated-User-Email` to scope history and artifacts per user. `wrangler dev` has no Access in front — `user_email` falls back to `'anonymous'`. **Never deploy without Access.**
+Two modes via `AUTH_MODE` (see README):
+
+- **`public` (play.skyphusion.org):** first-party username/password + opaque session cookie. No CF Access on the worker URL. Per-user AI Gateway prefs in D1 (worker gateway secrets ignored so visitors never bill the host).
+- **`access` (private self-host default):** Cloudflare Access on the worker URL; identity from `Cf-Access-Authenticated-User-Email`. Deployer may set `GATEWAY_ID` + `CF_AIG_TOKEN` for shared billing.
+
+`resolveIdentity` in `src/auth.ts` is the single seam either way. `wrangler dev` has no Access and no session by default; do not expose a local dev port publicly.
 
 ### Long-running jobs (video/music, 30s–3min)
 
-These exceed the ~30s `ctx.waitUntil` budget, so they use **Cloudflare Workflows**. The `LongRunWorkflow` class (bottom of `src/index.ts`) holds the blocking `env.AI.run` call alive across retryable step boundaries; the workflow instance ID is persisted as `chats.job_id`. **Workflows do not run under `wrangler dev --remote`** — deploy to test Unified Billing video/music.
+These exceed the ~30s `ctx.waitUntil` budget, so they use **Cloudflare Workflows**. The `LongRunWorkflow` class (`src/routes/workflow.ts`, exported from `src/index.ts`) holds the blocking `env.AI.run` call alive across retryable step boundaries; the workflow instance ID is persisted as `chats.job_id`. **Workflows do not run under `wrangler dev --remote`** -- deploy to test Unified Billing video/music.
 
 The same `LONGRUN` binding serves several workflow kinds (`run()` branches on `event.payload.kind`):
 - **`runGen`** (default; `kind` is `"video"`/`"music"`): Unified Billing video + music gen.
@@ -92,7 +97,7 @@ Also: `[observability] enabled = true` (dashboard log tailing). `compatibility_d
 
 ## Routes reference
 
-All matched in the single `fetch` handler in `src/index.ts` (see the one-line pointer at the top of that file). Anything not matched falls through to `ASSETS` (static `public/`). Every `/api/*` route is scoped to the caller's `Cf-Access-Authenticated-User-Email`.
+All matched in the single `fetch` handler in `src/index.ts` (see the one-line pointer at the top of that file). Anything not matched falls through to `ASSETS` (static `public/`). In public mode, authenticated `/api/*` routes require a session (except boot probes like `GET /api/models` and `/api/auth/*`); identity is the account id. In access mode, identity is `Cf-Access-Authenticated-User-Email`.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -145,7 +150,7 @@ Add pure-function tests to `tests/`; add fetch-handler or binding tests to `test
 ## Identity & commits
 - Handle/username is `skyphusion` across all services. Default to it when a username is needed.
 - One scoped commit per release. Subject = scoped change, body = the why, footer = files touched.
-- Crew work as their own identity: the FIRST command in any op is the member's own login shell, `sudo -u <member> bash -lc '<ops>'` (own `$HOME`, own clone, own gh/CF creds); commits and PRs land under `skyphusion-<member>`, never Conrad's. Conrad's own commits author `conrad@rockenhaus.net`. Operating memory for this repo lives in its per-project memory; load it before acting.
+- Crew work as their own identity: the FIRST command in any op is the member's own login shell, `sudo -u <member> bash -lc '<ops>'` (own `$HOME`, own clone, own gh/CF creds); commits and PRs land under `skyphusion-<member>`, never Conrad's. Conrad's laptop commits author `Conrad Rockenhaus <conrad@skyphusion.org>`. Operating memory for this repo lives in its per-project memory; load it before acting.
 
 ## Release versioning
 - SemVer-style `0.MINOR.PATCH` (currently pre-1.0). **PATCH** for fixes, follow-throughs, and backend-only tweaks; **MINOR** for new features (a new model, modality, or capability). Bump `package.json` `version` in the same commit.
@@ -161,8 +166,8 @@ Add pure-function tests to `tests/`; add fetch-handler or binding tests to `test
 `.github/workflows/tag-version.yml` asserts `vX.Y.Z` == root `package.json` version on every `v*`
 push (refuses a lying tag).
 
-npm publish (if used) is on **GitHub Release published** via `publish-npm.yml`, not on the deploy tag
-alone: cut the tag, then `gh release create` if publishing the package.
+npm publish for `@skyphusion/create-prism` (if used) is on **GitHub Release published** via
+`publish-npm.yml`, not on the deploy tag alone.
 
 ### Cut a release
 
@@ -178,4 +183,11 @@ git push origin vX.Y.Z
 
 3. Confirm the tag CI run's deploy job green. Verify live `play.skyphusion.org` (or self-host), not
    only a green check.
-4. Optional npm: `gh release create vX.Y.Z --title "vX.Y.Z" --generate-notes` to fire `publish-npm.yml`.
+4. **GitHub Release** (announce / notes; also fires `publish-npm.yml` when applicable):
+
+```bash
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file - <<'EOF'
+## Highlights
+...
+EOF
+```
