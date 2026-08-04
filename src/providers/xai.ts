@@ -20,6 +20,7 @@
 // rather than the older max_tokens field.
 
 import type { AiContext } from "../ai-binding";
+import { aiRun, aiLogId } from "../ai-binding";
 import type { ModelEntry } from "../models";
 import type { ProviderStreamEvent } from "../parsers/types";
 import { CF_AIG_TOKEN_REQUIRED_MSG } from "../gateway-credentials";
@@ -71,11 +72,95 @@ async function prepareXaiRequest(
   };
 }
 
+// v0.170.0: binding-dispatch path for models flagged `binding: true`
+// (currently xai/grok-4.5). Same frozen-allowlist story as Anthropic Fable-5:
+// new Unified Billing models land on the env.AI.run catalog surface; the
+// legacy AI Gateway grok endpoint may forward unknown ids keyless and 401.
+// Body is OpenAI Chat Completions shaped (messages + max_completion_tokens);
+// the FULL prefixed catalog id is passed to env.AI.run. Non-stream returns
+// chat.completion JSON (extractOutput); stream returns OpenAI-compatible SSE
+// consumed by interpretXaiSSEFrame.
+function buildXaiBindingBody(
+  messages: Array<unknown>,
+  stream: boolean,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    messages,
+    max_completion_tokens: 4096,
+  };
+  if (stream) {
+    body.stream = true;
+    body.stream_options = { include_usage: true };
+  }
+  return body;
+}
+
+async function callXaiBinding(
+  ctx: AiContext,
+  model: ModelEntry,
+  messages: Array<unknown>,
+): Promise<{ raw: unknown; logId: string | null }> {
+  const raw = await aiRun(ctx, model.id, buildXaiBindingBody(messages, false));
+  return { raw, logId: aiLogId(ctx) };
+}
+
+async function* callXaiStreamBinding(
+  ctx: AiContext,
+  model: ModelEntry,
+  messages: Array<unknown>,
+  signal: AbortSignal,
+): AsyncGenerator<ProviderStreamEvent> {
+  const result = await aiRun(ctx, model.id, buildXaiBindingBody(messages, true));
+
+  if (!(result instanceof ReadableStream)) {
+    throw new Error(`xAI binding did not return a stream (got ${typeof result}). Ensure stream:true is honored by this model.`);
+  }
+
+  const reader = result.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const onAbort = () => { try { reader.cancel(); } catch { /* fine */ } };
+  if (signal.aborted) {
+    onAbort();
+  } else {
+    signal.addEventListener("abort", onAbort, { once: true });
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      const { payloads, remainder } = extractSSEDataPayloads(buffer);
+      buffer = remainder;
+
+      for (const payload of payloads) {
+        let data: unknown;
+        try {
+          data = JSON.parse(payload);
+        } catch {
+          continue;
+        }
+        for (const event of interpretXaiSSEFrame(data)) yield event;
+      }
+    }
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+    try { reader.releaseLock(); } catch { /* fine */ }
+  }
+}
+
 export async function callXai(
   ctx: AiContext,
   model: ModelEntry,
   messages: Array<unknown>,
 ): Promise<{ raw: unknown; logId: string | null }> {
+  // v0.170.0: flagged models dispatch through the env.AI.run binding.
+  if (model.binding) return callXaiBinding(ctx, model, messages);
+
   const { url, headers, body } = await prepareXaiRequest(ctx, model, messages, { stream: false });
 
   const resp = await fetch(url, { method: "POST", headers, body });
@@ -113,6 +198,12 @@ export async function* callXaiStream(
   messages: Array<unknown>,
   signal: AbortSignal,
 ): AsyncGenerator<ProviderStreamEvent> {
+  // v0.170.0: flagged models stream through the env.AI.run binding.
+  if (model.binding) {
+    yield* callXaiStreamBinding(ctx, model, messages, signal);
+    return;
+  }
+
   const { url, headers, body } = await prepareXaiRequest(ctx, model, messages, { stream: true });
 
   const resp = await fetch(url, {

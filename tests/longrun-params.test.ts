@@ -65,6 +65,25 @@ describe("buildGenParams", () => {
     expect(p).not.toHaveProperty("image_input");
   });
 
+  it("Seedance 2.0 Mini i2v shares the Seedance 2.0 shape (v0.170.0)", () => {
+    const p = buildGenParams("video", {
+      modelId: "bytedance/seedance-2.0-mini",
+      prompt: "rain falls",
+      imageUrl: "https://x/k.png",
+    });
+    expect(p).toEqual({
+      image: "https://x/k.png",
+      prompt: "rain falls",
+      aspect_ratio: "16:9",
+      duration: 5,
+      resolution: "720p",
+      fps: 24,
+      camera_fixed: false,
+      watermark: false,
+      generate_audio: false,
+    });
+  });
+
   it("Hailuo 2.3 i2v shape: `first_frame_image` field, 768P resolution", () => {
     const p = buildGenParams("video", {
       modelId: "minimax/hailuo-2.3-fast",

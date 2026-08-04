@@ -1,3 +1,29 @@
+## v0.170.0
+
+feat(models): Sprint 1 catalog refresh (Unified Billing / Workers AI audit 2026-08-04)
+
+Four high-value adds against existing dispatchers; no new providers or modalities.
+
+### Added
+| Id | Notes |
+|---|---|
+| `xai/grok-4.5` | Unblocked. CF Unified Billing now documents `env.AI.run("xai/grok-4.5")`. Flagged `binding: true` (legacy AI Gateway grok allowlist remains frozen). Vision + streaming. |
+| `anthropic/claude-opus-5` | Near-Fable intelligence tier. `binding: true` (same frozen-allowlist path as Fable-5). Vision + streaming. |
+| `google/gemini-3.6-flash` | Newer Flash on existing google Generate Content dispatcher. Text-only caps (existing Gemini convention). |
+| `bytedance/seedance-2.0-mini` | Compact Seedance sibling; same i2v param shape as 2.0 / 2.0-fast (`longrun-params`). |
+
+### Code
+- `src/models.ts` -- four catalog rows; binding docs updated.
+- `src/providers/xai.ts` -- binding dispatch (`callXaiBinding` / `callXaiStreamBinding`) gated on `model.binding`, mirroring Anthropic v0.169.0.
+- `src/providers/anthropic.ts` -- binding comment covers opus-5.
+- `src/longrun-params.ts` -- `bytedance/seedance-2.0-mini` in Seedance i2v case.
+- `tests/xai-binding.test.ts`, `tests/sprint1-catalog.test.ts`, catalog/longrun pins.
+
+Deploy smoke (do not treat docs alone as proof):
+- `env.AI.run("xai/grok-4.5", …)` and `env.AI.run("anthropic/claude-opus-5", …)` with Unified Billing token.
+- Gemini 3.6 Flash non-stream + stream.
+- Seedance mini t2v (and optional i2v) via longrun workflow.
+
 ## v0.169.4
 
 PATCH: dependency updates (dependabot npm stack since v0.169.3) and security/CI follow-through already on main. Tag-gated deploy to play.skyphusion.org.
