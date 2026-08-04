@@ -1,3 +1,16 @@
+## v0.174.1
+
+fix(image): drop rejected Recraft style enum on V4 / V4.1
+
+Recraft V4 and V4.1 return 7003 `invalid_image_type` for
+`style: "digital_illustration"` (and `realistic_image`). Live smoke after
+v0.174.0 deploy confirmed bare `{ prompt, size }` returns 200. Proxied
+recraft path now omits `style`.
+
+### Code
+- `src/proxied-image-params.ts` -- recraft: prompt + size only
+- `tests/proxied-image-params.test.ts` -- pin no-style
+
 ## v0.174.0
 
 fix(image): Unified Billing for Grok Imagine (b64_json); OpenAI transparent BYOK carve-out

@@ -26,13 +26,13 @@ describe("buildProxiedImageParams", () => {
     expect("output_format" in params).toBe(false);
   });
 
-  it("recraft (recraftv4) sends size + style, never a background flag", () => {
+  it("recraft (recraftv4*) sends size only (no legacy style enum; V4/V4.1 reject digital_illustration)", () => {
     const params = buildProxiedImageParams("recraft", "a logo");
     expect(params).toEqual({
       prompt: "a logo",
       size: "1024x1024",
-      style: "digital_illustration",
     });
+    expect("style" in params).toBe(false);
     expect("background" in params).toBe(false);
   });
 
