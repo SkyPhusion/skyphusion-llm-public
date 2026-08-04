@@ -1,9 +1,9 @@
 name: tag-version
 
 # fc#864: when a v* tag is pushed, assert it matches root package.json version.
-# Prism has no CI tag-deploy (manual wrangler); this still stops a lying /health
-# string from being implied by a mismatched SemVer tag. publish-npm.yml already
-# guards create-prism releases separately.
+# Production deploy is tag-gated in ci.yml (deploy job on refs/tags/v* only).
+# This workflow only rejects a lying tag (vX.Y.Z != package.json version) so a
+# mismatch cannot ship. publish-npm.yml guards create-prism releases separately.
 on:
   push:
     tags: ["v*"]
