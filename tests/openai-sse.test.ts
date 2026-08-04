@@ -68,4 +68,32 @@ describe("interpretOpenAISSEFrame", () => {
     expect(() => interpretOpenAISSEFrame("[DONE]")).not.toThrow();
     expect(interpretOpenAISSEFrame(null)).toEqual([]);
   });
+
+  // --- Shape 3: Responses API typed events (v0.173.0) ---
+
+  it("extracts text from response.output_text.delta", () => {
+    expect(interpretOpenAISSEFrame({
+      type: "response.output_text.delta",
+      delta: "Hello",
+      output_index: 0,
+    })).toEqual([{ type: "text", text: "Hello" }]);
+  });
+
+  it("drops empty Responses text deltas", () => {
+    expect(interpretOpenAISSEFrame({ type: "response.output_text.delta", delta: "" })).toEqual([]);
+  });
+
+  it("reads usage from response.completed", () => {
+    expect(interpretOpenAISSEFrame({
+      type: "response.completed",
+      response: {
+        usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 },
+      },
+    })).toEqual([{ type: "usage", in_: 10, out_: 20 }]);
+  });
+
+  it("ignores intermediate Responses lifecycle events", () => {
+    expect(interpretOpenAISSEFrame({ type: "response.created", response: {} })).toEqual([]);
+    expect(interpretOpenAISSEFrame({ type: "response.output_item.added", item: {} })).toEqual([]);
+  });
 });

@@ -30,8 +30,16 @@ Data-only image siblings on existing dispatchers:
 | Added | `xai/grok-imagine-image-quality` | xai image path |
 | Added | `bytedance/seedream-5-lite` | bytedance image path |
 
-Deferred (later): Responses-API GPT-5.6 family, `hh1.1-r2v`, Aleph-2, new TTS
-providers, multimodal caps on K3.
+### Sprint 4 (v0.173.0)
+
+OpenAI Responses API path (`api: "responses"`):
+
+| Action | Id |
+|---|---|
+| Added | `openai/gpt-5.5-pro`, `openai/gpt-5.6-sol`, `openai/gpt-5.6-terra`, `openai/gpt-5.6-luna` |
+
+Deferred (later): `hh1.1-r2v`, Aleph-2, new TTS providers, multimodal caps on K3,
+deploy smokes for Sprints 1–4.
 
 ---
 

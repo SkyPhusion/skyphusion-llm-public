@@ -1,3 +1,33 @@
+## v0.173.0
+
+feat(openai): Responses API path + GPT-5.6 / 5.5-pro catalog
+
+OpenAI models that only ship the Responses API (not Chat Completions) now
+dispatch through `api: "responses"` on `ModelEntry`.
+
+### Added
+| Id | Notes |
+|---|---|
+| `openai/gpt-5.5-pro` | Responses; 1M ctx |
+| `openai/gpt-5.6-sol` | Frontier Responses |
+| `openai/gpt-5.6-terra` | Balanced Responses |
+| `openai/gpt-5.6-luna` | Cost-sensitive Responses |
+
+### Code
+- `src/models.ts` -- optional `api?: "responses"`; four catalog rows
+- `src/providers/openai.ts` -- `buildOpenAIResponsesBody`, `callOpenAI` (non-stream),
+  stream body branches on `model.api`
+- `src/parsers/openai-sse.ts` -- `response.output_text.delta` + `response.completed`
+- `src/output-extract.ts` -- `detectProviderFailure` for Responses `status`
+- `src/routes/chat.ts` -- non-stream openai goes through `callOpenAI`
+- Tests: `openai-responses`, SSE + failure pins
+
+Existing `openai/gpt-5.5` and siblings stay on Chat Completions (no `api` flag).
+Vision caps empty until multimodal-in is smoked.
+
+Deploy smoke: non-stream + stream for `openai/gpt-5.6-sol` and `openai/gpt-5.5-pro`
+with Unified Billing token.
+
 ## v0.172.0
 
 feat(models): Sprint 3 image-tier siblings (data-only)

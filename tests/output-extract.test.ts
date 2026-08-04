@@ -122,6 +122,23 @@ describe("detectProviderFailure", () => {
     expect(detectProviderFailure({ state: "Failed" })).toBe('provider returned state "Failed"');
   });
 
+  it("flags OpenAI Responses API failed/incomplete status (v0.173.0)", () => {
+    expect(detectProviderFailure({
+      object: "response",
+      status: "failed",
+      error: { message: "upstream unavailable" },
+    })).toBe("upstream unavailable");
+    expect(detectProviderFailure({
+      object: "response",
+      status: "incomplete",
+    })).toBe('provider returned status "incomplete"');
+  });
+
+  it("does not flag a completed Responses object", () => {
+    expect(detectProviderFailure({ object: "response", status: "completed", output: [] })).toBeNull();
+  });
+
+
   it("treats any non-Completed state as a failure", () => {
     expect(detectProviderFailure({ state: "Cancelled" })).toBe('provider returned state "Cancelled"');
   });
