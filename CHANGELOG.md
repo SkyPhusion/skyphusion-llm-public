@@ -1,3 +1,13 @@
+## v0.174.2
+
+chore(release): ship bare-prompt Recraft (#140)
+
+`v0.174.1` tagged and deployed from #139 only (`prompt` + `size`). This
+release deploys #140: bare `{ prompt }` so `recraftv4-1-pro` works (Pro
+rejects 1024x1024).
+
+No code change beyond the version bump; bare-prompt path already on main.
+
 ## v0.174.1
 
 fix(image): bare-prompt Recraft path (drop style + size)
