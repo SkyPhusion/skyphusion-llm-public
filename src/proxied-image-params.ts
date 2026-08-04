@@ -15,7 +15,9 @@
 //   openai    (gpt-image-*):        opaque via proxy
 //                                   { prompt, quality, size }. Transparent PNG
 //                                   only via OPENAI_API_KEY BYOK (openai-image.ts).
-//   recraft   (recraftv4*):         opaque, art-directed. Returns webp URL.
+//   recraft   (recraftv4*):         opaque. Returns webp URL. V4/V4.1 reject
+//                                   legacy style enums (digital_illustration);
+//                                   omit style (live-verified 200, v0.174.1).
 //   xai       (grok-imagine-*):     { prompt, response_format: "b64_json" }
 //                                   CF Unified Billing xAI path is ZDR-constrained
 //                                   and rejects URL output; base64 is required.
@@ -36,7 +38,9 @@ export function buildProxiedImageParams(
       // Transparent PNGs use OPENAI_API_KEY + generateOpenAIImage instead.
       return { prompt, quality: "high", size: "1024x1024" };
     case "recraft":
-      return { prompt, size: "1024x1024", style: "digital_illustration" };
+      // Recraft V4 / V4.1 7003 on style digital_illustration / realistic_image
+      // ("doesn't support style ..."). Bare prompt+size is accepted.
+      return { prompt, size: "1024x1024" };
     case "xai":
       // Unified Billing Grok Imagine rejects URL format on CF's managed
       // credentials ("Zero Data Retention teams do not have access to URL
