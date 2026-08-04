@@ -174,24 +174,22 @@ export const MODELS: ModelEntry[] = [
   // v0.172.0: fast/cheap Nano Banana sibling; same google proxied image path.
   { id: "google/nano-banana-2-lite",                    label: "Nano Banana 2 Lite (Google)", group: "Image Gen",            type: "image", capabilities: [], provider: "google" },
   { id: "google/imagen-4",                              label: "Imagen 4 (Google)",          group: "Image Gen",            type: "image", capabilities: [], provider: "google" },
-  // gpt-image-1.5 (v0.22.0). Opaque only: the CF proxy schema is
-  // { prompt, images, quality, size, style } and 7003-rejects
-  // background/output_format, so transparency is impossible through it.
-  // v0.166.0 retired the OPENAI_API_KEY BYOK transparent-PNG path (prism#93),
-  // so this rides the Unified Billing proxy like the other proxied image models.
+  // gpt-image-1.5 (v0.22.0). Opaque on CF proxy by default ({ prompt, quality,
+  // size }; proxy 7003-rejects background/output_format). Optional OPENAI_API_KEY
+  // BYOK (restored v0.174.0 after prism#93 / v0.166.0) for transparent PNG.
   { id: "openai/gpt-image-1.5",                         label: "GPT Image 1.5 (OpenAI)",     group: "Image Gen", type: "image", capabilities: [], provider: "openai" },
-  // gpt-image-2 (v0.165.0): same opaque proxy dispatch as 1.5.
+  // gpt-image-2 (v0.165.0): same opaque-proxy / optional transparent BYOK split.
   { id: "openai/gpt-image-2",                           label: "GPT Image 2 (OpenAI)",       group: "Image Gen", type: "image", capabilities: [], provider: "openai" },
-  // recraftv4 is opaque and art-directed (the CF proxy exposes no alpha flag,
-  // only an opaque background_color). Strong text rendering and style controls;
-  // returns webp. Added for logos/icons-on-bg/styled scenes, NOT transparency.
+  // recraftv4 is opaque and art-directed. Strong text rendering; returns webp.
+  // buildProxiedImageParams sends bare { prompt } (v0.174.1+); V4/V4.1 reject
+  // legacy style enums and V4.1 Pro rejects 1024x1024.
   { id: "recraft/recraftv4",                            label: "Recraft V4 (art-directed, opaque)", group: "Image Gen", type: "image", capabilities: [], provider: "recraft" },
   // v0.172.0: standard-res V4.1 (pro is 2048px+); same recraft dispatcher.
   { id: "recraft/recraftv4-1",                          label: "Recraft V4.1 (art-directed, opaque)", group: "Image Gen", type: "image", capabilities: [], provider: "recraft" },
   { id: "recraft/recraftv4-1-pro",                      label: "Recraft V4.1 Pro (art-directed, opaque)", group: "Image Gen", type: "image", capabilities: [], provider: "recraft" },
-  // v0.171.0: xAI / ByteDance image via the same proxied URL path as google/
-  // openai/recraft (buildProxiedImageParams + extractProxiedImageUrl).
-  // Seedream returns result.images[]; Grok Imagine returns result.image.
+  // v0.171.0: xAI / ByteDance image via buildProxiedImageParams +
+  // extractProxiedImageAsset. Seedream: result.images[]; Grok Imagine:
+  // b64_json (ZDR) or URL, normalized by extractProxiedImageAsset.
   { id: "xai/grok-imagine-image",                       label: "Grok Imagine Image (xAI)",     group: "Image Gen", type: "image", capabilities: [], provider: "xai" },
   // v0.172.0: higher-fidelity Grok Imagine sibling; same xai image path.
   { id: "xai/grok-imagine-image-quality",               label: "Grok Imagine Image Quality (xAI)", group: "Image Gen", type: "image", capabilities: [], provider: "xai" },
@@ -234,8 +232,8 @@ export const MODELS: ModelEntry[] = [
   // billing. Includes xAI Grok Imagine Video (v0.164.0: moved off BYOK).
   { id: "google/veo-3.1",                               label: "Veo 3.1 (Google)",               group: "Video Gen", type: "video", capabilities: [], provider: "google" },
   { id: "google/veo-3.1-fast",                          label: "Veo 3.1 Fast (Google)",          group: "Video Gen", type: "video", capabilities: [], provider: "google" },
-  { id: "google/veo-3",                                 label: "Veo 3 (Google)",                 group: "Video Gen", type: "video", capabilities: [], provider: "google" },
-  { id: "google/veo-3-fast",                            label: "Veo 3 Fast (Google)",            group: "Video Gen", type: "video", capabilities: [], provider: "google" },
+  // google/veo-3 and google/veo-3-fast: CF returns 7010 deprecated
+  // ("use google/veo-3.1-fast instead"); removed from catalog 2026-08-04.
   { id: "bytedance/seedance-2.0",                       label: "Seedance 2.0 (ByteDance)",       group: "Video Gen", type: "video", capabilities: ["image-input"], provider: "bytedance" },
   { id: "bytedance/seedance-2.0-fast",                  label: "Seedance 2.0 Fast (ByteDance)",  group: "Video Gen", type: "video", capabilities: ["image-input"], provider: "bytedance" },
   // v0.170.0: compact/cost-efficient Seedance sibling; same t2v/i2v param shape.

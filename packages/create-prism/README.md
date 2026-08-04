@@ -42,9 +42,11 @@ TypeScript.
 
 ## Cloudflare resources you provide
 
-Everything bills through **Cloudflare Unified Billing** on your own AI Gateway; there
-is no deployer BYOK key. Create these once and wire their ids into `wrangler.toml`
-(the scaffolder prints the exact commands):
+Everything bills through **Cloudflare Unified Billing** on your own AI Gateway.
+Optional: set `OPENAI_API_KEY` only if you want transparent `gpt-image-*` PNGs
+(v0.174.0 carve-out; leave unset for fully keyless deploys). Create the resources
+below once and wire their ids into `wrangler.toml` (the scaffolder prints the
+exact commands):
 
 **Required bindings**
 
