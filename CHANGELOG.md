@@ -1,3 +1,22 @@
+## v0.172.0
+
+feat(models): Sprint 3 image-tier siblings (data-only)
+
+Four catalog rows on dispatchers already shipped in v0.171.0 / earlier. No new
+provider code.
+
+| Id | Notes |
+|---|---|
+| `google/nano-banana-2-lite` | Fast/cheap Nano Banana; google proxied image path |
+| `recraft/recraftv4-1` | Standard-res V4.1 (pro already present); recraft path |
+| `xai/grok-imagine-image-quality` | Higher-fidelity Grok Imagine; xai image path |
+| `bytedance/seedream-5-lite` | Lighter Seedream; bytedance path (`result.images[]`) |
+
+### Code
+- `src/models.ts` -- four image entries
+- `tests/sprint3-catalog.test.ts` -- catalog pins
+- `docs/models-audit.md` -- Sprint 3 row
+
 ## v0.171.1
 
 fix(deps): pin undici 7.29.0 (Dependabot high + 4 medium)

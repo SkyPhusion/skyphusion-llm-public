@@ -19,8 +19,19 @@
 | Added | `xai/grok-imagine-image` | Proxied image (`result.image`) |
 | Added | `bytedance/seedream-5-pro` | Proxied image (`result.images[]`) |
 
-Deferred (later): Responses-API GPT-5.6 family, `hh1.1-r2v`, Aleph-2, Seedream lite,
-Grok Imagine quality, new TTS providers, multimodal caps on K3.
+### Sprint 3 (v0.172.0)
+
+Data-only image siblings on existing dispatchers:
+
+| Action | Id | Notes |
+|---|---|---|
+| Added | `google/nano-banana-2-lite` | google image path |
+| Added | `recraft/recraftv4-1` | recraft path |
+| Added | `xai/grok-imagine-image-quality` | xai image path |
+| Added | `bytedance/seedream-5-lite` | bytedance image path |
+
+Deferred (later): Responses-API GPT-5.6 family, `hh1.1-r2v`, Aleph-2, new TTS
+providers, multimodal caps on K3.
 
 ---
 
