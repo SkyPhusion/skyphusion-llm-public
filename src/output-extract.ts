@@ -124,14 +124,12 @@ export function detectProviderFailure(result: unknown): string | null {
   return null;
 }
 
-// Pull the generated-image URL out of a proxied image-gen response. Proxied
-// image models return a URL, not base64, wrapped in the same { state, result }
-// envelope as video/music:
-//   { state: "Completed", result: { image: "<url>" } }          // google/openai/xai
-//   { state: "Completed", result: { images: ["<url>", ...] } }  // bytedance Seedream (v0.171.0)
-// Bare { image } / { images } forms (no binding wrapper) are accepted too.
-// For multi-image arrays, the first URL wins (playground stores one artifact).
-export function extractProxiedImageUrl(result: unknown): string | null {
+// Pull the first image string out of a proxied image-gen response.
+// Envelope shapes (env.AI.run / Unified Billing):
+//   { state: "Completed", result: { image: "<url|b64|data-uri>" } }   // google/openai/xai
+//   { state: "Completed", result: { images: ["...", ...] } }          // Seedream
+// Bare { image } / { images } forms are accepted too. Multi-image: first wins.
+function firstImageString(result: unknown): string | null {
   if (!result || typeof result !== "object") return null;
   const r = result as {
     result?: { image?: unknown; images?: unknown };
@@ -149,4 +147,32 @@ export function extractProxiedImageUrl(result: unknown): string | null {
     return r.images[0];
   }
   return null;
+}
+
+// URL-only helper (kept for call sites / tests that only want a fetchable URL).
+export function extractProxiedImageUrl(result: unknown): string | null {
+  const s = firstImageString(result);
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s) || s.startsWith("data:")) return s;
+  return null;
+}
+
+// v0.174.0: Unified Billing Grok Imagine returns base64 (response_format
+// b64_json) rather than a URL. Normalize either form so runImage can store
+// bytes without a fetch when the payload is already inline.
+export type ProxiedImageAsset =
+  | { kind: "url"; url: string }
+  | { kind: "b64"; base64: string; mime: string };
+
+export function extractProxiedImageAsset(result: unknown): ProxiedImageAsset | null {
+  const s = firstImageString(result);
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return { kind: "url", url: s };
+  if (s.startsWith("data:")) {
+    const m = s.match(/^data:([^;]+);base64,(.+)$/);
+    if (!m) return null;
+    return { kind: "b64", mime: m[1], base64: m[2] };
+  }
+  // Raw base64 (Grok Imagine b64_json default).
+  return { kind: "b64", mime: "image/png", base64: s };
 }

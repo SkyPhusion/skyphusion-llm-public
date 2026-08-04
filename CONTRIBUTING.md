@@ -38,7 +38,11 @@ When adding a new third-party model that isn't already in the catalog, prefer th
 - It uses Cloudflare's AI Gateway natively, so observability, caching, and rate limiting come free.
 - It is less code on our side: no per-provider dispatch helper, no transform between our internal `messages` shape and the provider's format (when the binding handles it).
 
-Do not add a deployer BYOK path. Per prism#93 (2026-07-18), prism stays on the unified Cloudflare Workers AI / AI Gateway (Unified Billing) plane; new inference paths must be Unified-Billing-reachable. The former `OPENAI_API_KEY` transparent-PNG exception was retired in v0.166.0, so `gpt-image-*` now render opaque through the proxy like every other proxied image model.
+Stay on Cloudflare Workers AI / AI Gateway (Unified Billing) for inference.
+**Sole deployer-key exception (v0.174.0):** optional `OPENAI_API_KEY` for
+`openai/gpt-image-*` transparent PNG only (the CF proxy rejects
+`background`/`output_format`). No other provider may grow a deployer BYOK path;
+if Unified Billing cannot do it, park the feature rather than minting a new key.
 
 ## Long-running operations
 

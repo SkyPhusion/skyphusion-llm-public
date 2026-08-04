@@ -38,8 +38,20 @@ OpenAI Responses API path (`api: "responses"`):
 |---|---|
 | Added | `openai/gpt-5.5-pro`, `openai/gpt-5.6-sol`, `openai/gpt-5.6-terra`, `openai/gpt-5.6-luna` |
 
+### Image Unified Billing notes (v0.174.0)
+
+- REST/third-party calls must pin the gateway: `cf-aig-gateway-id: skyphusion-llm`
+  (that gateway is not the account default). Worker `env.AI.run` already does this
+  via `{ gateway: { id } }`.
+- `xai/grok-imagine-*` require `response_format: "b64_json"` on Unified Billing
+  (URL format rejected by CF-managed ZDR xAI credentials). Handled in
+  `buildProxiedImageParams` as of v0.174.0.
+- OpenAI transparent PNG remains impossible on the proxy; optional `OPENAI_API_KEY`
+  is the only deployer BYOK carve-out.
+
 Deferred (later): `hh1.1-r2v`, Aleph-2, new TTS providers, multimodal caps on K3,
 deploy smokes for Sprints 1–4.
+
 
 ---
 

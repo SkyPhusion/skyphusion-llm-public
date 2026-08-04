@@ -44,6 +44,12 @@ export interface Env {
   // sent as cf-aig-authorization. Also used when Authenticated Gateway is on.
   // v0.164.0: optional on the worker in public demo mode (per-user token in D1).
   CF_AIG_TOKEN?: string;
+  // Optional. Sole deployer BYOK exception (v0.174.0 restore of the v0.22.1
+  // path): when set, openai/gpt-image-* go direct to api.openai.com for
+  // transparent PNG (background + output_format). When unset, those models
+  // stay on Unified Billing and render opaque. No other provider reads a
+  // deployer key.
+  OPENAI_API_KEY?: string;
   // v0.166.0: base URL of the self-hosted SearXNG instance for the optional
   // web-search retrieval source (our deploy: https://search.skyphusion.org).
   // Optional: when unset, the SearXNG source is silently skipped (Wikipedia,
