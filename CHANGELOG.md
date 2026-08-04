@@ -1,3 +1,7 @@
+## v0.169.4
+
+PATCH: dependency updates (dependabot npm stack since v0.169.3) and security/CI follow-through already on main. Tag-gated deploy to play.skyphusion.org.
+
 ## v0.169.3
 
 fix(security): access mode fails closed without Access header (prism#112, #113)
