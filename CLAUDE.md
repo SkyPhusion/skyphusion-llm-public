@@ -151,3 +151,30 @@ Add pure-function tests to `tests/`; add fetch-handler or binding tests to `test
 - Commit subjects that ship a release end the subject with the version in parens, e.g. `feat(image): transparent PNG ... (v0.22.1)`.
 - Every release gets a new top-of-file entry in `CHANGELOG.md`: `## vX.Y.Z` heading, a one-line summary, prose explaining the why, and a `### Code` section listing every file touched (including the `package.json` X -> Y bump) ending with typecheck/test status. New bindings or schema changes are documented as copy-paste blocks in the entry so existing deployers can apply them by hand.
 - In-code version references: when a line of code or a comment is tied to a release, tag it `(vX.Y.Z)` so the catalog/config history stays traceable (this is the existing convention throughout `src/`).
+
+## Release / tagging
+
+**TAG-GATED deploy.** `.github/workflows/ci.yml` deploys the Worker **only** on a pushed `v*` tag
+(after CI passes). A bare merge to `main` does **not** redeploy production.
+
+`.github/workflows/tag-version.yml` asserts `vX.Y.Z` == root `package.json` version on every `v*`
+push (refuses a lying tag).
+
+npm publish (if used) is on **GitHub Release published** via `publish-npm.yml`, not on the deploy tag
+alone: cut the tag, then `gh release create` if publishing the package.
+
+### Cut a release
+
+1. **Release PR on `main`:** bump `package.json` version, add `CHANGELOG.md` `## vX.Y.Z` (house
+   style above), land the PR.
+2. **Tag** (must match `package.json`):
+
+```bash
+git fetch origin main && git checkout main && git pull --ff-only
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+3. Confirm the tag CI run's deploy job green. Verify live `play.skyphusion.org` (or self-host), not
+   only a green check.
+4. Optional npm: `gh release create vX.Y.Z --title "vX.Y.Z" --generate-notes` to fire `publish-npm.yml`.
