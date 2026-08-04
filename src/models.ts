@@ -57,6 +57,11 @@ export interface ModelEntry {
   // Gateway provider-fetch path. Used when the frozen legacy allowlist would
   // forward an unknown id keyless (provider 401). See anthropic.ts / xai.ts.
   binding?: boolean;
+  // v0.173.0: OpenAI request surface. Default (omitted) is Chat Completions
+  // ({ messages }). "responses" uses the Responses API ({ input, instructions,
+  // max_output_tokens }) for models that only ship that format (gpt-5.6-*,
+  // gpt-5.5-pro). See src/providers/openai.ts.
+  api?: "responses";
 }
 
 export const MODELS: ModelEntry[] = [
@@ -116,6 +121,11 @@ export const MODELS: ModelEntry[] = [
   // capabilities is empty: multimodal-in through the proxied binding is
   // unverified, so the attach affordance stays off.
   { id: "openai/gpt-5.5",                               label: "GPT-5.5 (OpenAI)",          group: "Chat \u00b7 OpenAI",   type: "chat", capabilities: [], provider: "openai", streaming: true },
+  // v0.173.0: Responses API only (not Chat Completions). Flagged api:"responses".
+  { id: "openai/gpt-5.5-pro",                           label: "GPT-5.5 Pro (OpenAI, Responses)", group: "Chat \u00b7 OpenAI", type: "chat", capabilities: [], provider: "openai", streaming: true, api: "responses" },
+  { id: "openai/gpt-5.6-sol",                           label: "GPT-5.6 Sol (OpenAI, Responses)", group: "Chat \u00b7 OpenAI", type: "chat", capabilities: [], provider: "openai", streaming: true, api: "responses" },
+  { id: "openai/gpt-5.6-terra",                         label: "GPT-5.6 Terra (OpenAI, Responses)", group: "Chat \u00b7 OpenAI", type: "chat", capabilities: [], provider: "openai", streaming: true, api: "responses" },
+  { id: "openai/gpt-5.6-luna",                          label: "GPT-5.6 Luna (OpenAI, Responses)", group: "Chat \u00b7 OpenAI", type: "chat", capabilities: [], provider: "openai", streaming: true, api: "responses" },
   { id: "openai/gpt-5.4",                               label: "GPT-5.4 (OpenAI)",          group: "Chat \u00b7 OpenAI",   type: "chat", capabilities: [], provider: "openai", streaming: true },
   { id: "openai/gpt-5.4-mini",                          label: "GPT-5.4 mini (OpenAI)",     group: "Chat \u00b7 OpenAI",   type: "chat", capabilities: [], provider: "openai", streaming: true },
   { id: "openai/o4-mini",                               label: "o4-mini (OpenAI, reasoning)", group: "Chat \u00b7 OpenAI", type: "chat", capabilities: [], provider: "openai", streaming: true },

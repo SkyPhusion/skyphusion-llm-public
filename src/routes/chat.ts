@@ -15,7 +15,7 @@ import { extractOutput, extractUsage, detectProviderFailure, extractProxiedImage
 import { callAnthropic, callAnthropicStream } from "../providers/anthropic";
 import { callXai, callXaiStream } from "../providers/xai";
 import { callWorkersAIStream } from "../providers/workers-ai";
-import { callOpenAIStream } from "../providers/openai";
+import { callOpenAI, callOpenAIStream } from "../providers/openai";
 import { callGemini, callGeminiStream } from "../providers/google";
 import { buildProxiedImageParams } from "../proxied-image-params";
 import {
@@ -425,7 +425,13 @@ export async function runChat(request: Request, env: Env, model: ModelEntry, bod
       const r = await callGemini(aiCtx, model, effectiveSystemPrompt || undefined, messages);
       result = r.raw;
       logId = r.logId;
+    } else if (model.provider === "openai") {
+      // Chat Completions or Responses API depending on model.api (v0.173.0).
+      const r = await callOpenAI(aiCtx, model, messages);
+      result = r.raw;
+      logId = r.logId;
     } else {
+      // Workers AI hosted chat (and moonshotai Chat Completions via env.AI.run).
       result = await aiRun(aiCtx, model.id, { messages });
       logId = aiLogId(aiCtx);
     }

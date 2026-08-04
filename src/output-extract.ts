@@ -109,6 +109,18 @@ export function detectProviderFailure(result: unknown): string | null {
       ? r.error
       : `provider returned state "${r.state}"`;
   }
+  // OpenAI Responses API: status is "completed" | "failed" | "incomplete" | ...
+  // (not the video/image `state` field). Treat failed/incomplete as errors so
+  // we do not persist an empty success row.
+  if (typeof r.status === "string" && r.status !== "completed" && r.object === "response") {
+    const err = r.error as { message?: string } | string | null | undefined;
+    const msg = typeof err === "string" ? err
+      : err && typeof err === "object" && typeof err.message === "string" ? err.message
+      : null;
+    return msg && msg.trim()
+      ? msg
+      : `provider returned status "${r.status}"`;
+  }
   return null;
 }
 
