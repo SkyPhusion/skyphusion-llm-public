@@ -3,7 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>skyphusion</title>
+  <title>Prism | Multimodal AI playground on Cloudflare (public signup, BYOK)</title>
+  <meta name="description" content="Prism is a free AGPL multimodal AI playground on Cloudflare Workers: public signup, bring your own AI Gateway for Unified Billing. Chat, voice, image, video, music, RAG, and web search. By Skyphusion Labs.">
+  <link rel="canonical" href="https://play.skyphusion.org/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Prism">
+  <meta property="og:title" content="Prism | Multimodal AI playground on Cloudflare">
+  <meta property="og:description" content="Public signup multimodal AI playground. Bring your own Cloudflare AI Gateway. Chat, voice, image, video, music, RAG. Free AGPL software from Skyphusion Labs.">
+  <meta property="og:url" content="https://play.skyphusion.org/">
+  <meta property="og:locale" content="en_US">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Prism | Multimodal AI playground on Cloudflare">
+  <meta name="twitter:description" content="Public signup multimodal AI playground. Bring your own Cloudflare AI Gateway. Free AGPL from Skyphusion Labs.">
+  <meta name="robots" content="index, follow">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16">
@@ -11,8 +23,28 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0a0e1a">
   <link rel="stylesheet" href="/styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Prism",
+    "url": "https://play.skyphusion.org/",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Web",
+    "description": "Multimodal AI playground on Cloudflare Workers with public signup and per-user AI Gateway BYOK.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": {
+      "@type": "Organization",
+      "name": "Skyphusion Labs",
+      "url": "https://skyphusion.org"
+    },
+    "codeRepository": "https://github.com/skyphusion-labs/prism",
+    "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+  }
+  </script>
 </head>
 <body>
+  <a class="seo-skip" href="#auth-screen" style="position:absolute;left:-9999px">Prism multimodal AI playground: sign up or log in</a>
   <!-- #80 public-mode first-party auth. Hidden by default; the boot probe
        (GET /api/session) reveals it only when mode=public and no session.
        Access / self-host deploys report mode=access and never show it. -->
@@ -20,9 +52,9 @@
     <form id="auth-form" class="auth-card" novalidate>
       <div class="auth-brand">
         <span class="brand-mark" aria-hidden="true"></span>
-        <span class="brand-name">skyphusion</span>
+        <h1 class="brand-name">Prism</h1>
       </div>
-      <p class="auth-sub">multimodal AI playground</p>
+      <p class="auth-sub">multimodal AI playground on Cloudflare</p>
 
       <div class="auth-tabs" role="tablist" aria-label="log in or sign up">
         <button type="button" id="auth-tab-login" class="auth-tab" role="tab" aria-selected="false">log in</button>
@@ -67,7 +99,7 @@
     <!-- slide-in sidebar -->
     <aside class="sidebar">
       <header class="sidebar-header">
-        <h1>history</h1>
+        <h2>history</h2>
         <button id="new-chat" type="button">+ new</button>
       </header>
       <input id="history-search" class="history-search" type="search" placeholder="search history&#8230;" aria-label="search history">
