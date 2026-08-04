@@ -845,6 +845,12 @@ npm run typecheck
 
 Runs `tsc --noEmit`. The Workers build uses esbuild and skips type checking, so this script is the source of truth for type errors during development.
 
+## See also
+
+- **Write-up:** [Prism is open: sign up, bring your own Cloudflare AI Gateway](https://skyphusion.net/blog/prism-public/)
+- **Labs hub:** [skyphusion.org](https://skyphusion.org) · **Blog:** [skyphusion.net](https://skyphusion.net)
+- **Related:** [postern](https://github.com/skyphusion-labs/postern) (mailbox for humans and agents), [search-mcp](https://github.com/skyphusion-labs/search-mcp) (AI Search + ask widget), [vivijure](https://github.com/skyphusion-labs/vivijure) (AI film studio)
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). PRs welcome. Current backlog items that would be especially welcome:
