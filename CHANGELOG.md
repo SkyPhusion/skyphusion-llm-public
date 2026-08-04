@@ -1,3 +1,29 @@
+## v0.171.0
+
+feat(models): Sprint 2 catalog (image + Kimi K3)
+
+Three high-value Unified Billing adds that needed small dispatch work beyond
+catalog rows.
+
+### Added
+| Id | Notes |
+|---|---|
+| `moonshotai/kimi-k3` | Third-party Moonshot flagship (not `@cf/moonshotai/*`). Chat Completions via `env.AI.run`; stream reuses `callOpenAIStream`. New `Provider` value `moonshotai`. Caps empty until multimodal-in is smoked. |
+| `xai/grok-imagine-image` | Proxied image; `result.image` URL envelope. |
+| `bytedance/seedream-5-pro` | Proxied image; `result.images[]` (first URL stored). |
+
+### Code
+- `src/models.ts` -- three catalog rows; `moonshotai` on `Provider`.
+- `src/proxied-image-params.ts` -- bare `{ prompt }` for `xai` and `bytedance`.
+- `src/output-extract.ts` -- `extractProxiedImageUrl` accepts `result.images[]`.
+- `src/routes/chat.ts` -- stream dispatch treats `moonshotai` like OpenAI SSE.
+- Tests: sprint2 catalog, proxied-image-params, extractProxiedImageUrl.
+
+Deploy smoke (with Unified Billing token):
+- `env.AI.run("moonshotai/kimi-k3", { messages })` non-stream + stream
+- `env.AI.run("xai/grok-imagine-image", { prompt })`
+- `env.AI.run("bytedance/seedream-5-pro", { prompt })`
+
 ## v0.170.0
 
 feat(models): Sprint 1 catalog refresh (Unified Billing / Workers AI audit 2026-08-04)

@@ -1,6 +1,6 @@
 {
   "name": "prism",
-  "version": "0.170.0",
+  "version": "0.171.0",
   "description": "Multimodal AI playground on Cloudflare Workers: chat, voice, image/video/music generation, RAG, and web search.",
   "license": "AGPL-3.0-only",
   "author": "Conrad Rockenhaus",

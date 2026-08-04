@@ -518,9 +518,9 @@ export async function runImage(request: Request, env: Env, model: ModelEntry, bo
   try {
     if (model.provider) {
       // Proxied image (Unified Billing via the gateway): nano-banana (google),
-      // recraftv4 (recraft), and gpt-image-1.5 / gpt-image-2 (openai). All are
-      // opaque; v0.166.0 retired the OPENAI_API_KEY BYOK transparent-PNG path
-      // (prism#93), so gpt-image-* now ride the proxy like the others.
+      // recraftv4 (recraft), gpt-image-* (openai), grok-imagine-image (xai),
+      // seedream-5-pro (bytedance). All are opaque; v0.166.0 retired the
+      // OPENAI_API_KEY BYOK transparent-PNG path (prism#93).
       // The @cf models carry no `provider`, so this branch is exactly the
       // proxied set. Per-provider request shape comes from buildProxiedImageParams
       // because each upstream schema is additionalProperties:false and rejects
@@ -528,12 +528,12 @@ export async function runImage(request: Request, env: Env, model: ModelEntry, bo
       // has no negative_prompt slot on any of them and is ignored.
       //
       // They return a URL (not base64) in the { state, result } envelope:
-      //   { state: "Completed", result: { image: "<url>" } }
+      //   { state: "Completed", result: { image: "<url>" } }           // most
+      //   { state: "Completed", result: { images: ["<url>", ...] } }   // Seedream
       // so we fetch the URL and store the bytes, like the video path does. mime
       // comes from the response content-type (recraftv4 returns webp, the
       // openai/google paths return png), so no format is hardcoded on the store.
-      // (First pass is text-to-image only; gpt-image-1.5's images[] editing and
-      // reference inputs are a later add, mirroring the FLUX.2 ref-image work.)
+      // (First pass is text-to-image only; reference-image editing is a later add.)
       const result = await aiRun(aiCtx!, model.id, buildProxiedImageParams(model.provider, body.user_input));
       logId = aiLogId(aiCtx!);
 
@@ -1338,7 +1338,9 @@ export async function runChatStream(request: Request, env: Env, model: ModelEntr
         streamGenerator = callAnthropicStream(aiCtx, model, effectiveSystemPrompt || undefined, messages, upstreamAbort.signal);
       } else if (model.provider === "xai") {
         streamGenerator = callXaiStream(aiCtx, model, messages, upstreamAbort.signal);
-      } else if (model.provider === "openai") {
+      } else if (model.provider === "openai" || model.provider === "moonshotai") {
+        // OpenAI + Moonshot K3 (v0.171.0): both are Chat Completions over
+        // env.AI.run with OpenAI-compatible SSE.
         streamGenerator = callOpenAIStream(aiCtx, model, messages, upstreamAbort.signal);
       } else if (model.provider === "google") {
         streamGenerator = callGeminiStream(aiCtx, model, effectiveSystemPrompt || undefined, messages, upstreamAbort.signal);
