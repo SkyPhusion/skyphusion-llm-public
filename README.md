@@ -29,7 +29,7 @@ A working template for the Cloudflare AI stack and a self-hosted multimodal play
 One Worker, no framework, no build step beyond TypeScript. The interesting parts are the patterns, not the model count:
 
 - **Unified `env.AI.run()` binding** drives every modality through one call surface: chat, vision input, image gen, TTS, STT, conversational STT + voice chat (Flux over a WebSocket), video gen, and music gen. Paid third-party models bill through **Cloudflare Unified Billing** on your AI Gateway.
-- **Per-provider dispatch helpers** for Anthropic Claude, xAI Grok, and Google Gemini, each transforming our internal `messages` shape into the provider's native format while authorizing keylessly via `cf-aig-authorization`. OpenAI chat and Workers AI ride the `env.AI.run` binding directly. There is no deployer BYOK path: the last one, an optional `OPENAI_API_KEY` for `gpt-image-1.5` transparent PNGs, was retired in v0.166.0 (prism#93), so `gpt-image-*` render opaque through the Unified Billing proxy.
+- **Per-provider dispatch helpers** for Anthropic Claude, xAI Grok, and Google Gemini, each transforming our internal `messages` shape into the provider's native format while authorizing keylessly via `cf-aig-authorization`. OpenAI chat and Workers AI ride the `env.AI.run` binding directly. **Sole deployer BYOK carve-out (v0.174.0):** optional `OPENAI_API_KEY` lets `openai/gpt-image-*` call `api.openai.com` for transparent PNG (the CF proxy 7003-rejects `background`/`output_format`). When unset, those models stay opaque on Unified Billing. Do not set this key on public multi-tenant deploys.
 - **SSE streaming** (v0.13.0+) for chat models on all five providers: Anthropic native SSE, Workers AI OpenAI-compatible SSE, xAI OpenAI-compatible SSE, OpenAI proxied (binding-based, v0.21.1), and Gemini (binding-based, v0.21.4).
 - **AI Gateway** wraps every call for observability, caching, and rate-limiting.
 - **D1** holds chat metadata, multi-turn conversation history, and RAG chunk text. **R2** holds all binary artifacts. **Vectorize** holds RAG embeddings (768-dim BGE-base). The chat row references R2 keys; nothing binary touches D1.
@@ -40,16 +40,17 @@ One Worker, no framework, no build step beyond TypeScript. The interesting parts
 
 ## Features
 
-**Chat (36 models across 5 providers; 35 of 36 stream-capable):**
+**Chat (see `GET /api/models` / `src/models.ts` for the live list):**
 - Workers AI: Llama 4 Scout, Llama 3.x family, Qwen3 30B / QwQ 32B / Qwen2.5 Coder 32B, DeepSeek R1, Mistral Small 3.1, Gemma 4 26B, Granite 4 Micro, Nemotron 3 120B, GLM-4.7 Flash / GLM-5.2, GPT-OSS 120B / 20B, Kimi K2.6 / K2.7 Code, SEA-LION v4 27B, LLaVA 1.5 7B (single-shot vision; the one non-streaming model)
-- Anthropic (Unified Billing): Sonnet 5, Opus 4.8, Opus 4.7, Opus 4.6, Sonnet 4.6, Haiku 4.5 (all streaming)
-- xAI (Unified Billing): Grok 4.3, Grok 4.20 (Multi-Agent and Reasoning) (all streaming as of v0.16.0)
-- OpenAI (Unified Billing): GPT-5.5, GPT-5.4, GPT-5.4 mini, o4-mini (streaming as of v0.21.1; needs CF credits)
-- Google Gemini (Unified Billing): Gemini 3.1 Pro and Gemini 3.5 Flash (streaming as of v0.21.4; needs CF credits)
+- Anthropic (Unified Billing): Sonnet 5, Opus 5, Opus 4.8 / 4.7 / 4.6, Sonnet 4.6, Haiku 4.5 (all streaming; Fable needs `binding: true`)
+- xAI (Unified Billing): Grok 4.5, Grok 4.3, Grok 4.20 (Multi-Agent and Reasoning)
+- OpenAI (Unified Billing): GPT-5.5 / 5.5-pro, GPT-5.6 Sol / Terra / Luna (Responses API), GPT-5.4 / mini, o4-mini
+- Google Gemini (Unified Billing): Gemini 3.1 Pro, 3.5 Flash, 3.6 Flash
+- Moonshot (Unified Billing): Kimi K3
 
-**Image generation:** Google Nano Banana Pro / Nano Banana 2 / Imagen 4 (Unified Billing), GPT Image 1.5 and GPT Image 2 (OpenAI, opaque; v0.22.1/v0.165.0), Recraft V4 / V4.1 Pro (opaque, art-directed; v0.22.0/v0.165.0), FLUX 2 Klein 9B/4B, FLUX 2 Dev, FLUX-1 schnell, Lucid Origin, Phoenix 1.0, Dreamshaper 8 LCM, Stable Diffusion XL. FLUX.2 models accept up to 4 reference images (v0.16.0) for image-to-image generation, downscaled client-side to 512px.
+**Image generation:** Google Nano Banana Pro / Nano Banana 2 / Lite / Imagen 4 (Unified Billing), GPT Image 1.5 and GPT Image 2 (opaque on the proxy; transparent PNG only when `OPENAI_API_KEY` is set, v0.174.0), Recraft V4 / V4.1 / V4.1 Pro (opaque, art-directed), xAI Grok Imagine Image (+ Quality), ByteDance Seedream 5 Pro / Lite, FLUX 2 Klein 9B/4B, FLUX 2 Dev, FLUX-1 schnell, Lucid Origin, Phoenix 1.0, Dreamshaper 8 LCM, Stable Diffusion XL. FLUX.2 models accept up to 4 reference images (v0.16.0) for image-to-image generation, downscaled client-side to 512px.
 
-**Video generation:** Google Veo 3.1 / 3.1 Fast / 3 / 3 Fast, ByteDance Seedance 2.0 / 2.0 Fast, MiniMax Hailuo 2.3 / 2.3 Fast, RunwayML Gen-4.5, Alibaba HappyHorse 1.0 and 1.1 T2V / I2V plus Wan 2.7 I2V (image-to-video, v0.21.5/v0.165.0), PixVerse v6 / v5.6, Vidu Q3 Pro / Q3 Turbo, xAI Grok Imagine Video and Video 1.5. All 20 models route through Unified Billing and durable Cloudflare Workflows.
+**Video generation:** Google Veo 3.1 / 3.1 Fast (legacy `veo-3` / `veo-3-fast` ids are deprecated upstream; prefer 3.1), ByteDance Seedance 2.0 / 2.0 Fast / Mini, MiniMax Hailuo 2.3 / 2.3 Fast, RunwayML Gen-4.5, Alibaba HappyHorse 1.0 and 1.1 T2V / I2V plus Wan 2.7 I2V, PixVerse v6 / v5.6, Vidu Q3 Pro / Q3 Turbo, xAI Grok Imagine Video and Video 1.5. All route through Unified Billing and durable Cloudflare Workflows.
 
 **Music generation:** MiniMax Music 2.6 (Unified Billing, durable via Workflows).
 
@@ -150,7 +151,7 @@ echo "CF_AIG_TOKEN=your-cloudflare-api-token" >> .dev.vars
 
 Then enable Unified Billing for each provider you plan to use: Dashboard > AI > AI Gateway > your gateway > Settings. Without credits, proxied models fail with `2021: Invalid User Credentials`.
 
-There is **no** deployer BYOK secret: the last one, `OPENAI_API_KEY` for `openai/gpt-image-1.5` transparent PNG output, was retired in v0.166.0 (prism#93). OpenAI chat has never used it.
+OpenAI chat never uses a deployer key. The **only** optional deployer secret is `OPENAI_API_KEY` (v0.174.0): when set, `openai/gpt-image-*` call `api.openai.com` for transparent PNG; when unset they stay opaque on Unified Billing. Leave it unset on public multi-tenant deploys so visitors cannot burn host credits.
 
 > **Public service:** to run the open, first-party-signup instance instead (no worker gateway secrets; every user brings their own AI Gateway), see [Running the public service](#running-the-public-service), and skip steps 1, 1b, and 6.
 
@@ -385,7 +386,7 @@ The worker is the only public surface. R2 is private; the worker streams objects
 ### Model types
 
 - `chat`: text generation. Accepts vision attachments on vision-capable models. Audio attachments are transcribed via Whisper. Video attachments are 8 client-extracted keyframes. Text-file attachments (v0.24.0) are inlined into the prompt as a fenced block (any chat model).
-- `image`: text-to-image generation. The system prompt field becomes the negative prompt. FLUX.2 models additionally accept up to 4 reference images (v0.16.0). Output is a JPEG/PNG in R2; proxied image models including `openai/gpt-image-*` are opaque (v0.166.0 retired the transparent-PNG BYOK path).
+- `image`: text-to-image generation. The system prompt field becomes the negative prompt. FLUX.2 models additionally accept up to 4 reference images (v0.16.0). Output is a JPEG/PNG in R2. Proxied models are usually opaque on Unified Billing; `openai/gpt-image-*` can be transparent PNG when `OPENAI_API_KEY` is set (v0.174.0).
 - `tts`: text-to-speech. Output is audio (MP3 or model-default container) in R2.
 - `stt`: speech-to-text transcription. Input audio, output text.
 - `voice`: conversational/streaming STT (Deepgram Flux). A live WebSocket session, not a request/response turn; powers the standalone `/stt.html` panel and the [voice chat](#voice-chat) loop. Special-cased on both routing and UI (the chat path rejects it with a pointer to `/api/stt/stream`).
@@ -464,7 +465,9 @@ GPT-5.5, GPT-5.4, GPT-5.4 mini, and o4-mini (a reasoning model) are routed throu
 
 This is a deliberate re-introduction. OpenAI chat shipped as BYOK in v0.11.0 and was removed in the v0.14.0 consolidation in favor of Unified Billing. These entries come back on the Unified Billing side of that same decision, so they are not a revert of v0.14.0; the BYOK chat path stays gone.
 
-As of v0.166.0 there is no OpenAI BYOK path at all. A narrow image-only BYOK exception existed through v0.165.x: `openai/gpt-image-1.5` could produce transparent PNGs via a direct `api.openai.com` call, because the Unified Billing proxy's image schema is strictly `{ prompt, images, quality, size, style }` and rejects `background`/`output_format` (a request with them returns `7003: User Input Error`). prism#93 retired that path, so `gpt-image-*` now render opaque through the proxy like every other proxied image model. See the Image generation section below.
+OpenAI **chat** stays Unified Billing only (no deployer key). OpenAI **image** has one optional carve-out (restored v0.174.0 after prism#93 retired it in v0.166.0): set `OPENAI_API_KEY` and `gpt-image-*` call `api.openai.com` with `background: "transparent"` + `output_format: "png"`, because the CF proxy schema is strictly `{ prompt, images, quality, size, style }` and 7003-rejects those fields. Unset key → opaque proxy. See the Image generation section below.
+
+Responses-API catalog entries (`openai/gpt-5.5-pro`, `gpt-5.6-sol` / `terra` / `luna`, v0.173.0) use `api: "responses"` and `buildOpenAIResponsesBody` / the Responses SSE frames; Chat Completions models omit the flag.
 
 Two current limitations:
 
@@ -495,7 +498,7 @@ Per CF docs, BYOK is not supported for third-party models called through the AI 
 | Model | Works today | Notes |
 |---|---|---|
 | `xai/grok-imagine-video` | needs CF credits | 8s default |
-| `google/veo-3.1`, `veo-3.1-fast`, `veo-3`, `veo-3-fast` | needs CF credits | route through `env.AI.run` |
+| `google/veo-3.1`, `veo-3.1-fast` (prefer these; `veo-3` / `veo-3-fast` deprecated upstream 7010) | needs CF credits | route through `env.AI.run` |
 | `bytedance/seedance-2.0`, `seedance-2.0-fast` | needs CF credits | CF partner, no public API |
 | `minimax/hailuo-2.3`, `hailuo-2.3-fast` | needs CF credits | CF partner, no public API |
 | `runwayml/gen-4.5` | needs CF credits | CF partner |
@@ -630,9 +633,11 @@ Eleven models in the catalog: Google Nano Banana Pro and OpenAI GPT Image 1.5, p
 
 - **Recraft V4** (`recraft/recraftv4`, Unified Billing) is opaque and art-directed (strong composition and text rendering). The CF proxy exposes no alpha control, only an opaque `background_color`. It returns WebP; the worker stores it with the response content-type, so no format is hardcoded.
 
-- **GPT Image 1.5 / 2** (`openai/gpt-image-1.5`, `openai/gpt-image-2`) are opaque through the Unified Billing proxy, whose image schema is strictly `{ prompt, images, quality, size, style }` and 7003-rejects `background`/`output_format`. v0.166.0 retired the `OPENAI_API_KEY` BYOK direct call to `api.openai.com` that was the only way to get a transparent PNG (prism#93), so these now render opaque like every other proxied image model.
+- **GPT Image 1.5 / 2** (`openai/gpt-image-1.5`, `openai/gpt-image-2`) are opaque through the Unified Billing proxy by default (`{ prompt, quality, size }`; proxy 7003-rejects `background`/`output_format`). **Optional BYOK (v0.174.0):** when `OPENAI_API_KEY` is set, `runImage` calls `api.openai.com` via `src/providers/openai-image.ts` for transparent PNG. Leave the secret unset on public play.
+- **xAI Grok Imagine** (`xai/grok-imagine-image`, `-quality`): request `response_format: "b64_json"` on Unified Billing (CF-managed ZDR credentials reject URL format). `extractProxiedImageAsset` accepts URL or inline base64.
+- **Recraft** (`recraft/recraftv4*`): bare `{ prompt }` only (v0.174.1/v0.174.2); legacy `style` enums and Pro `1024x1024` size are rejected upstream.
 
-All proxied image models return a URL (not base64) in the `{ state, result }` envelope (`{ state: "Completed", result: { image: "<url>" } }`), which the worker fetches and stores in R2 with the response content-type, so no format is hardcoded.
+Proxied image models return a URL and/or inline base64 in the `{ state, result }` envelope. The worker stores bytes in R2 (fetching when `kind === "url"`, decoding when base64).
 
 ### FLUX.2 reference images (v0.16.0)
 

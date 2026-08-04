@@ -1,3 +1,19 @@
+## v0.174.3
+
+docs: align BYOK carve-out with v0.174; drop deprecated Veo 3 ids
+
+- Docs (README, CLAUDE, CONTRIBUTING, create-prism): restore accurate
+  `OPENAI_API_KEY` transparent-PNG exception (v0.174.0); update catalog
+  blurbs (Responses, Grok Imagine, Recraft bare prompt, Sprint models).
+- Catalog: remove `google/veo-3` and `google/veo-3-fast` (CF 7010
+  deprecated; use `veo-3.1` / `veo-3.1-fast`).
+- Live smoke: `minimax/music-2.6` instrumental 200; `google/veo-3.1-fast`
+  200 (worker music path still defaults lyrics to `[Instrumental]`).
+
+### Code
+- `src/models.ts` -- drop deprecated Veo 3 ids; gpt-image/recraft comments
+- README.md, CLAUDE.md, CONTRIBUTING.md, packages/create-prism/README.md
+
 ## v0.174.2
 
 chore(release): ship bare-prompt Recraft (#140)

@@ -8,7 +8,7 @@ This project is maintained as time allows. Response times on issues and PRs may 
 
 ## Scope
 
-The project is a template for the Cloudflare AI stack: a single Worker that ties together Workers AI, AI Gateway, D1, R2, Vectorize, Workflows, and Cloudflare Access. Modalities covered: chat (text and vision), image generation, TTS, STT, video generation, music generation, and RAG over uploaded files. Paid third-party models run on **Cloudflare Unified Billing**; there is no deployer BYOK path (the last one, `OPENAI_API_KEY` for `gpt-image-1.5` transparent PNGs, was retired in v0.166.0 under prism#93).
+The project is a template for the Cloudflare AI stack: a single Worker that ties together Workers AI, AI Gateway, D1, R2, Vectorize, Workflows, and Cloudflare Access. Modalities covered: chat (text and vision), image generation, TTS, STT, video generation, music generation, and RAG over uploaded files. Paid third-party models run on **Cloudflare Unified Billing**. The sole deployer-key exception is optional `OPENAI_API_KEY` for transparent `openai/gpt-image-*` PNG (v0.174.0); everything else stays keyless on Unified Billing.
 
 PRs that fit:
 
