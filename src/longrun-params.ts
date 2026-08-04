@@ -44,10 +44,12 @@ function imageToVideoParams(
   const motion = prompt && prompt.trim() ? prompt : DEFAULT_MOTION_PROMPT;
 
   switch (modelId) {
-    // ByteDance Seedance 2.0: field `image`; integer duration 4-12; resolution
-    // 480p/720p/1080p; aspect_ratio. generate_audio off (we score separately).
+    // ByteDance Seedance 2.0 family: field `image`; integer duration 4-12;
+    // resolution 480p/720p (mini caps at 720p); aspect_ratio. generate_audio
+    // off (we score separately). v0.170.0: seedance-2.0-mini shares this shape.
     case "bytedance/seedance-2.0":
     case "bytedance/seedance-2.0-fast":
+    case "bytedance/seedance-2.0-mini":
       return {
         image: imageUrl,
         prompt: motion,

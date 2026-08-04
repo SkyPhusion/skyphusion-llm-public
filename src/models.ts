@@ -51,11 +51,10 @@ export interface ModelEntry {
   // (server-sent events). Covers Anthropic, Workers AI, xAI, OpenAI, and
   // Google. Chat models only - irrelevant for image/tts/video/stt/music types.
   streaming?: boolean;
-  // v0.169.0: when true, dispatch through the env.AI.run binding (the new CF
-  // Unified Billing catalog surface) instead of the legacy AI Gateway
-  // provider-fetch path. Set for anthropic/claude-fable-5: the frozen legacy
-  // allowlist forwards its id keyless (provider 401), while the binding path
-  // injects Unified Billing credentials. See src/providers/anthropic.ts.
+  // v0.169.0 / v0.170.0: when true, dispatch through the env.AI.run binding
+  // (the new CF Unified Billing catalog surface) instead of the legacy AI
+  // Gateway provider-fetch path. Used when the frozen legacy allowlist would
+  // forward an unknown id keyless (provider 401). See anthropic.ts / xai.ts.
   binding?: boolean;
 }
 
@@ -71,6 +70,9 @@ export const MODELS: ModelEntry[] = [
   // path injects credentials. Dispatch lives in src/providers/anthropic.ts.
   { id: "anthropic/claude-fable-5",                     label: "Claude Fable 5 (Anthropic)",           group: "Chat \u00b7 Anthropic", type: "chat", capabilities: ["vision"], provider: "anthropic", streaming: true, binding: true },
   { id: "anthropic/claude-sonnet-5",                    label: "Claude Sonnet 5 (Anthropic)",          group: "Chat \u00b7 Anthropic", type: "chat", capabilities: ["vision"], provider: "anthropic", streaming: true },
+  // v0.170.0: Claude Opus 5 (near-Fable intelligence, lower price). New CF
+  // Unified Billing onboarding; binding path required (legacy allowlist frozen).
+  { id: "anthropic/claude-opus-5",                      label: "Claude Opus 5 (Anthropic)",            group: "Chat \u00b7 Anthropic", type: "chat", capabilities: ["vision"], provider: "anthropic", streaming: true, binding: true },
   { id: "anthropic/claude-opus-4-8",                    label: "Claude Opus 4.8 (Anthropic)",          group: "Chat \u00b7 Anthropic", type: "chat", capabilities: ["vision"], provider: "anthropic", streaming: true },
   { id: "anthropic/claude-opus-4-7",                    label: "Claude Opus 4.7 (Anthropic)",          group: "Chat \u00b7 Anthropic", type: "chat", capabilities: ["vision"], provider: "anthropic", streaming: true },
   { id: "anthropic/claude-opus-4-6",                    label: "Claude Opus 4.6 (Anthropic)",          group: "Chat \u00b7 Anthropic", type: "chat", capabilities: ["vision"], provider: "anthropic", streaming: true },
@@ -78,10 +80,10 @@ export const MODELS: ModelEntry[] = [
   { id: "anthropic/claude-haiku-4-5",                   label: "Claude Haiku 4.5 (Anthropic)",         group: "Chat \u00b7 Anthropic", type: "chat", capabilities: ["vision"], provider: "anthropic", streaming: true },
 
   // xAI / Grok (Unified Billing via cf-aig-authorization, routed through AI Gateway)
-  // blocked (v0.169.0): xai/grok-4.5 is absent from the new CF Unified Billing
-  // catalog, and the legacy AI Gateway allowlist is frozen (forwards unknown ids
-  // keyless -> provider 401). Re-add when env.AI.run("xai/grok-4.5") resolves,
-  // not when a docs page updates.
+  // v0.170.0: grok-4.5 re-added via env.AI.run binding (binding: true). CF docs
+  // now list it on the Unified Billing catalog with working env.AI.run examples;
+  // legacy gateway allowlist remains frozen for new ids.
+  { id: "xai/grok-4.5",                                 label: "Grok 4.5 (xAI)",                       group: "Chat \u00b7 xAI",       type: "chat", capabilities: ["vision"], provider: "xai", streaming: true, binding: true },
   { id: "xai/grok-4.3",                                 label: "Grok 4.3 (xAI)",                       group: "Chat \u00b7 xAI",       type: "chat", capabilities: ["vision"], provider: "xai", streaming: true },
   { id: "xai/grok-4.20-multi-agent-0309",               label: "Grok 4.20 Multi-Agent (xAI)",          group: "Chat \u00b7 xAI",       type: "chat", capabilities: ["vision"], provider: "xai", streaming: true },
   { id: "xai/grok-4.20-0309-reasoning",                 label: "Grok 4.20 Reasoning (xAI)",            group: "Chat \u00b7 xAI",       type: "chat", capabilities: ["vision"], provider: "xai", streaming: true },
@@ -133,6 +135,8 @@ export const MODELS: ModelEntry[] = [
   // incremental or cumulative chunks). Text-only (multimodal vision deferred).
   { id: "google/gemini-3.1-pro",                        label: "Gemini 3.1 Pro (Google)", group: "Chat \u00b7 Google",   type: "chat", capabilities: [], provider: "google", streaming: true },
   { id: "google/gemini-3.5-flash",                      label: "Gemini 3.5 Flash (Google)", group: "Chat \u00b7 Google",   type: "chat", capabilities: [], provider: "google", streaming: true },
+  // v0.170.0: newer Flash tier; same Generate Content / google dispatcher path.
+  { id: "google/gemini-3.6-flash",                      label: "Gemini 3.6 Flash (Google)", group: "Chat \u00b7 Google",   type: "chat", capabilities: [], provider: "google", streaming: true },
   // @cf/google/gemma-3-12b-it removed v0.165.0: marked Deprecated on the
   // Workers AI model list; gemma-4-26b-a4b-it (above) is the current Gemma.
   { id: "@cf/ibm-granite/granite-4.0-h-micro",          label: "Granite 4.0 Micro (IBM)",      group: "Chat \u00b7 Other",    type: "chat", capabilities: [], streaming: true },
@@ -205,6 +209,8 @@ export const MODELS: ModelEntry[] = [
   { id: "google/veo-3-fast",                            label: "Veo 3 Fast (Google)",            group: "Video Gen", type: "video", capabilities: [], provider: "google" },
   { id: "bytedance/seedance-2.0",                       label: "Seedance 2.0 (ByteDance)",       group: "Video Gen", type: "video", capabilities: ["image-input"], provider: "bytedance" },
   { id: "bytedance/seedance-2.0-fast",                  label: "Seedance 2.0 Fast (ByteDance)",  group: "Video Gen", type: "video", capabilities: ["image-input"], provider: "bytedance" },
+  // v0.170.0: compact/cost-efficient Seedance sibling; same t2v/i2v param shape.
+  { id: "bytedance/seedance-2.0-mini",                  label: "Seedance 2.0 Mini (ByteDance)",  group: "Video Gen", type: "video", capabilities: ["image-input"], provider: "bytedance" },
   { id: "minimax/hailuo-2.3",                           label: "Hailuo 2.3 (MiniMax)",           group: "Video Gen", type: "video", capabilities: ["image-input"], provider: "minimax" },
   { id: "minimax/hailuo-2.3-fast",                      label: "Hailuo 2.3 Fast (MiniMax)",      group: "Video Gen", type: "video", capabilities: ["image-input"], provider: "minimax" },
   { id: "xai/grok-imagine-video",                       label: "Grok Imagine Video (xAI)",                   group: "Video Gen", type: "video", capabilities: [], provider: "xai" },

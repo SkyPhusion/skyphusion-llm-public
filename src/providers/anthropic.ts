@@ -127,10 +127,10 @@ async function prepareAnthropicRequest(
   };
 }
 
-// v0.169.0: binding-dispatch path for models flagged `binding: true`
-// (currently anthropic/claude-fable-5). Cloudflare moved new-model onboarding
-// to the Unified Billing catalog surface reached through env.AI.run; the legacy
-// AI Gateway anthropic endpoint (prepareAnthropicRequest above) has a frozen
+// v0.169.0 / v0.170.0: binding-dispatch path for models flagged `binding: true`
+// (claude-fable-5, claude-opus-5). Cloudflare moved new-model onboarding to the
+// Unified Billing catalog surface reached through env.AI.run; the legacy AI
+// Gateway anthropic endpoint (prepareAnthropicRequest above) has a frozen
 // credential-injection allowlist that forwards unknown ids keyless, so the
 // provider 401s. The binding injects Unified Billing credentials and returns
 // the SAME native Anthropic wire shapes the legacy path does (message JSON for

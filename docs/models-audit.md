@@ -1,3 +1,22 @@
+# Model catalog audit
+
+## 2026-08-04 follow-up (Sprint 1 shipped as v0.170.0)
+
+Read-only re-audit vs Workers AI (81) + unified AI models (~214). Workers AI chat/image/tts
+coverage was already current. Sprint 1 (data-only / existing dispatchers):
+
+| Action | Id | Notes |
+|---|---|---|
+| Added | `xai/grok-4.5` | Unblocked; `binding: true` |
+| Added | `anthropic/claude-opus-5` | `binding: true` |
+| Added | `google/gemini-3.6-flash` | google dispatcher |
+| Added | `bytedance/seedance-2.0-mini` | Seedance i2v case |
+
+Deferred (Sprint 2+): `xai/grok-imagine-image`, `bytedance/seedream-5-pro`, `moonshotai/kimi-k3`,
+Responses-API GPT-5.6 family, reference-to-video, new TTS providers.
+
+---
+
 # Model catalog audit (#81), 2026-07-18
 
 Comparison of upstream availability vs `src/models.ts`, per issue #81. All upstream columns were

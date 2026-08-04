@@ -75,6 +75,15 @@ describe("catalog", () => {
     expect(m?.provider).toBe("anthropic");
     expect(m?.streaming).toBe(true);
   });
+
+  it("has claude-opus-5 flagged binding: true, provider anthropic, streaming, vision (v0.170.0)", () => {
+    const m = MODELS.find((x) => x.id === "anthropic/claude-opus-5");
+    expect(m).toBeDefined();
+    expect(m?.binding).toBe(true);
+    expect(m?.provider).toBe("anthropic");
+    expect(m?.streaming).toBe(true);
+    expect(m?.capabilities).toContain("vision");
+  });
 });
 
 describe("callAnthropic binding dispatch (non-stream)", () => {
