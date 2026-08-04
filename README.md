@@ -2,23 +2,23 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Typecheck](https://github.com/skyphusion-labs/prism/actions/workflows/typecheck.yml/badge.svg)](https://github.com/skyphusion-labs/prism/actions/workflows/typecheck.yml)
-[![Voice chat](https://img.shields.io/badge/%F0%9F%8E%99%EF%B8%8F_voice_chat-speak_%26_hear_36_chat_models-6d8cff)](#voice-chat)
+[![Voice chat](https://img.shields.io/badge/%F0%9F%8E%99%EF%B8%8F_voice_chat-speak_%26_hear_chat_models-6d8cff)](#voice-chat)
 
-A multimodal AI playground deployed as a single Cloudflare Worker. **Live demo:** https://play.skyphusion.org (free signup, bring your own AI Gateway). 36 chat models across 5 providers, **hands-free voice chat** (talk to any model and hear it reply), image / TTS / STT / video / music generation, cross-model artifact reuse within a conversation (v0.21.7), RAG over files of any type (v0.23.0), projects that scope a knowledge base and system prompt, Discord chat-log ingestion, opt-in web search via self-hosted SearXNG and Wikipedia, SSE streaming on supported chat models, and multi-turn conversations. One web UI with first-party accounts, per-user history, R2 for all binary artifacts.
+A multimodal AI playground deployed as a single Cloudflare Worker. **Live demo:** https://play.skyphusion.org (free signup, bring your own AI Gateway). **~45 chat models** across Workers AI, Anthropic, xAI, OpenAI, Google, and Moonshot (see `GET /api/models`), **hands-free voice chat** (talk to any chat model and hear it reply), image / TTS / STT / video / music generation, cross-model artifact reuse within a conversation (v0.21.7), RAG over files of any type (v0.23.0), projects that scope a knowledge base and system prompt, Discord chat-log ingestion, opt-in web search via self-hosted SearXNG and Wikipedia, SSE streaming on supported chat models, and multi-turn conversations. One web UI with first-party accounts, per-user history, R2 for all binary artifacts.
 
 <p align="center">
   <img src="docs/screenshot-desktop.jpg" alt="Desktop UI: image generation with Nano Banana Pro" width="800"><br><br>
   <img src="docs/screenshot-mobile.jpg" alt="Mobile UI: image generation with Nano Banana Pro" width="280">
 </p>
 
-> ### 🎙️ Speak to 36 AI models, and hear all 36 talk back
-> Not one voice assistant, **all 36 chat models**, by voice. Pick any model on the
-> list, tap the mic, and have a real spoken conversation: your speech is
-> transcribed by Deepgram Flux, sent to the model through the normal chat path,
-> and the reply is **spoken back** with Aura-2 TTS, hands-free. End to end on
-> Cloudflare, no third-party STT/TTS services. Every model on the list, from
-> Claude Opus to Llama to Grok to Gemini to GPT, answers out loud, and the
-> conversation saves to history like any other chat. See [Voice chat](#voice-chat).
+> ### 🎙️ Speak to the chat catalog, and hear it talk back
+> Not one voice assistant: **any chat model in the picker**, by voice. Pick a
+> model, tap the mic, and have a real spoken conversation: your speech is
+> transcribed by Deepgram Flux, sent through the normal chat path, and the reply
+> is **spoken back** with Aura-2 TTS, hands-free. End to end on Cloudflare, no
+> third-party STT/TTS services. Claude, Llama, Grok, Gemini, GPT, Kimi, and the
+> rest answer out loud; conversations save to history like any other chat. See
+> [Voice chat](#voice-chat).
 
 ## What this is
 
@@ -30,13 +30,13 @@ One Worker, no framework, no build step beyond TypeScript. The interesting parts
 
 - **Unified `env.AI.run()` binding** drives every modality through one call surface: chat, vision input, image gen, TTS, STT, conversational STT + voice chat (Flux over a WebSocket), video gen, and music gen. Paid third-party models bill through **Cloudflare Unified Billing** on your AI Gateway.
 - **Per-provider dispatch helpers** for Anthropic Claude, xAI Grok, and Google Gemini, each transforming our internal `messages` shape into the provider's native format while authorizing keylessly via `cf-aig-authorization`. OpenAI chat and Workers AI ride the `env.AI.run` binding directly. **Sole deployer BYOK carve-out (v0.174.0):** optional `OPENAI_API_KEY` lets `openai/gpt-image-*` call `api.openai.com` for transparent PNG (the CF proxy 7003-rejects `background`/`output_format`). When unset, those models stay opaque on Unified Billing. Do not set this key on public multi-tenant deploys.
-- **SSE streaming** (v0.13.0+) for chat models on all five providers: Anthropic native SSE, Workers AI OpenAI-compatible SSE, xAI OpenAI-compatible SSE, OpenAI proxied (binding-based, v0.21.1), and Gemini (binding-based, v0.21.4).
+- **SSE streaming** (v0.13.0+) for chat models across providers: Anthropic native SSE, Workers AI / OpenAI-compatible SSE (incl. Moonshot K3), xAI, OpenAI Chat Completions and Responses API (v0.173.0), and Gemini.
 - **AI Gateway** wraps every call for observability, caching, and rate-limiting.
 - **D1** holds chat metadata, multi-turn conversation history, and RAG chunk text. **R2** holds all binary artifacts. **Vectorize** holds RAG embeddings (768-dim BGE-base). The chat row references R2 keys; nothing binary touches D1.
 - **Cloudflare Workflows** owns long-running Unified Billing video and music generation (30s to 3min jobs). The `LongRunWorkflow` class holds the blocking `env.AI.run` call alive across step boundaries that `ctx.waitUntil` cannot.
 - **Two auth modes, one identity seam.** An `AUTH_MODE` setting picks how the worker learns who you are: **public** mode (the hosted product) runs first-party username/password accounts behind an opaque server-side session cookie, while **access** mode (the default, for private self-host) trusts Cloudflare Access's `Cf-Access-Authenticated-User-Email`. Either way a single stable, opaque account id scopes history and R2 ownership (`customMetadata.user_email`), so cross-user access is impossible even if a UUID is guessed.
 - **Client-side video keyframe extraction** sends 8 evenly-spaced frames to vision-capable chat models instead of uploading the full video file.
-- **Searchable model picker** (v0.111.0) groups the ~80 catalog entries across 7 modalities with capability badges (vision, stream) inline; type to filter by name.
+- **Searchable model picker** (v0.111.0) groups the live catalog (~94 entries across 7 modalities as of v0.174.3) with capability badges (vision, stream) inline; type to filter by name.
 
 ## Features
 
@@ -50,7 +50,7 @@ One Worker, no framework, no build step beyond TypeScript. The interesting parts
 
 **Image generation:** Google Nano Banana Pro / Nano Banana 2 / Lite / Imagen 4 (Unified Billing), GPT Image 1.5 and GPT Image 2 (opaque on the proxy; transparent PNG only when `OPENAI_API_KEY` is set, v0.174.0), Recraft V4 / V4.1 / V4.1 Pro (opaque, art-directed), xAI Grok Imagine Image (+ Quality), ByteDance Seedream 5 Pro / Lite, FLUX 2 Klein 9B/4B, FLUX 2 Dev, FLUX-1 schnell, Lucid Origin, Phoenix 1.0, Dreamshaper 8 LCM, Stable Diffusion XL. FLUX.2 models accept up to 4 reference images (v0.16.0) for image-to-image generation, downscaled client-side to 512px.
 
-**Video generation:** Google Veo 3.1 / 3.1 Fast (legacy `veo-3` / `veo-3-fast` ids are deprecated upstream; prefer 3.1), ByteDance Seedance 2.0 / 2.0 Fast / Mini, MiniMax Hailuo 2.3 / 2.3 Fast, RunwayML Gen-4.5, Alibaba HappyHorse 1.0 and 1.1 T2V / I2V plus Wan 2.7 I2V, PixVerse v6 / v5.6, Vidu Q3 Pro / Q3 Turbo, xAI Grok Imagine Video and Video 1.5. All route through Unified Billing and durable Cloudflare Workflows.
+**Video generation:** Google Veo 3.1 / 3.1 Fast, ByteDance Seedance 2.0 / 2.0 Fast / Mini, MiniMax Hailuo 2.3 / 2.3 Fast, RunwayML Gen-4.5, Alibaba HappyHorse 1.0 and 1.1 T2V / I2V plus Wan 2.7 I2V, PixVerse v6 / v5.6, Vidu Q3 Pro / Q3 Turbo, xAI Grok Imagine Video and Video 1.5. All route through Unified Billing and durable Cloudflare Workflows.
 
 **Music generation:** MiniMax Music 2.6 (Unified Billing, durable via Workflows).
 
@@ -58,7 +58,7 @@ One Worker, no framework, no build step beyond TypeScript. The interesting parts
 
 **Speech-to-text:** Whisper Large v3 Turbo / Whisper / Whisper Tiny EN and Deepgram Nova-3 (one-shot transcription), plus **Deepgram Flux** conversational/streaming STT with live turn detection over a WebSocket (v0.108.0).
 
-**Voice chat: talk to any model, hear it reply (v0.118.0):** a mic button on any chat model starts a hands-free loop, your speech is transcribed by Flux, each finished turn is sent to the selected model through the normal chat path, and the reply is spoken back via Aura-2 TTS. Works with all 36 chat models, the conversation saves to history like any other, and the whole loop runs on Cloudflare (no third-party STT/TTS). See [Voice chat](#voice-chat).
+**Voice chat: talk to any model, hear it reply (v0.118.0):** a mic button on any chat model starts a hands-free loop, your speech is transcribed by Flux, each finished turn is sent to the selected model through the normal chat path, and the reply is spoken back via Aura-2 TTS. Works with every chat model in the catalog; the conversation saves to history like any other, and the whole loop runs on Cloudflare (no third-party STT/TTS). See [Voice chat](#voice-chat).
 
 **RAG (Vectorize):** upload files of any type via the sidebar (v0.23.0), or a `.zip` to import many files at once (v0.25.0, each inner file becomes its own document). PDFs get per-page extraction and spreadsheets (`.xlsx`/`.xls`) per-sheet; every other file is read as UTF-8 text (CSV, JSON, HTML, source code, logs, etc.). Binary formats that don't decode to text (e.g. `.docx`, images) are rejected. The worker chunks, embeds via BGE-base, and stores vectors in Vectorize plus text in D1. Toggle "use my docs" per turn to fold the top-5 nearest chunks into the system prompt before the LLM call.
 
@@ -498,7 +498,7 @@ Per CF docs, BYOK is not supported for third-party models called through the AI 
 | Model | Works today | Notes |
 |---|---|---|
 | `xai/grok-imagine-video` | needs CF credits | 8s default |
-| `google/veo-3.1`, `veo-3.1-fast` (prefer these; `veo-3` / `veo-3-fast` deprecated upstream 7010) | needs CF credits | route through `env.AI.run` |
+| `google/veo-3.1`, `veo-3.1-fast` | needs CF credits | route through `env.AI.run` |
 | `bytedance/seedance-2.0`, `seedance-2.0-fast` | needs CF credits | CF partner, no public API |
 | `minimax/hailuo-2.3`, `hailuo-2.3-fast` | needs CF credits | CF partner, no public API |
 | `runwayml/gen-4.5` | needs CF credits | CF partner |
@@ -569,8 +569,8 @@ All four are hosted on Workers AI (no Unified Billing needed).
 
 ## Voice chat
 
-Talk to any of the 36 chat models and hear it talk back, hands-free. This is one
-of the headline features: a full **speech in, speech out** loop over any text
+Talk to any chat model in the catalog and hear it talk back, hands-free. This is
+one of the headline features: a full **speech in, speech out** loop over any text
 model on the list, running entirely on Cloudflare with no third-party STT/TTS.
 
 **Use it:** select a chat model, click the mic button in the composer (it only
@@ -792,7 +792,7 @@ If your use case is the legal-research pattern (citation accuracy matters, sourc
 
 ## Streaming
 
-`POST /api/chat/stream` accepts the same request body as `POST /api/chat` and returns `text/event-stream`. Available for any chat model flagged `streaming: true` in the catalog (35 of the 36 chat models, all but the single-shot LLaVA 1.5, covering all five providers: Anthropic, xAI, Workers AI, OpenAI proxied, and Gemini).
+`POST /api/chat/stream` accepts the same request body as `POST /api/chat` and returns `text/event-stream`. Available for any chat model flagged `streaming: true` in the catalog (almost all chat models; LLaVA 1.5 is the usual single-shot exception). Providers include Workers AI, Anthropic, xAI, OpenAI (Chat Completions and Responses), Google Gemini, and Moonshot.
 
 Wire format:
 
@@ -825,8 +825,9 @@ Note: AI Gateway does not surface `cf-aig-log-id` on proxied SSE responses, so s
 - `group` for the picker section heading
 - `type`: `"chat"` | `"image"` | `"tts"` | `"video"` | `"stt"` | `"music"`
 - `capabilities`: array. Currently only `"vision"` is recognized; applies to chat models only.
-- `provider` (optional): `"workers-ai"` (default) | `"anthropic"` | `"xai"` | `"openai"` / `"google"` / `"bytedance"` / `"minimax"` / `"runwayml"` / `"alibaba"` / `"pixverse"` / `"vidu"` (Unified Billing). Drives the call dispatch.
-- `streaming` (optional, chat only): when `true`, the model is eligible for `POST /api/chat/stream`. 35 of the 36 chat models across the five providers (Anthropic, Workers AI, xAI, OpenAI, Gemini) are wired; only the single-shot LLaVA 1.5 is not.
+- `provider` (optional): `"workers-ai"` (default) | `"anthropic"` | `"xai"` | `"openai"` | `"google"` | `"moonshotai"` | `"bytedance"` | `"minimax"` | `"runwayml"` | `"alibaba"` | `"pixverse"` | `"vidu"` | `"recraft"` (Unified Billing). Drives the call dispatch.
+- `api` (optional, OpenAI chat only): `"responses"` for Responses API models (v0.173.0); omit for Chat Completions.
+- `streaming` (optional, chat only): when `true`, the model is eligible for `POST /api/chat/stream`. Nearly all chat models; LLaVA 1.5 is the usual non-stream exception.
 
 Full Workers AI catalog: https://developers.cloudflare.com/workers-ai/models/. Skip anything tagged "Planned deprecation."
 
