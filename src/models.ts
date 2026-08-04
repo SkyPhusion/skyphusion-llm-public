@@ -161,6 +161,8 @@ export const MODELS: ModelEntry[] = [
   // v0.165.0 catalog refresh (#81): newer Google image models, same URL-returning
   // proxied path as nano-banana-pro.
   { id: "google/nano-banana-2",                         label: "Nano Banana 2 (Google)",     group: "Image Gen",            type: "image", capabilities: [], provider: "google" },
+  // v0.172.0: fast/cheap Nano Banana sibling; same google proxied image path.
+  { id: "google/nano-banana-2-lite",                    label: "Nano Banana 2 Lite (Google)", group: "Image Gen",            type: "image", capabilities: [], provider: "google" },
   { id: "google/imagen-4",                              label: "Imagen 4 (Google)",          group: "Image Gen",            type: "image", capabilities: [], provider: "google" },
   // gpt-image-1.5 (v0.22.0). Opaque only: the CF proxy schema is
   // { prompt, images, quality, size, style } and 7003-rejects
@@ -174,12 +176,18 @@ export const MODELS: ModelEntry[] = [
   // only an opaque background_color). Strong text rendering and style controls;
   // returns webp. Added for logos/icons-on-bg/styled scenes, NOT transparency.
   { id: "recraft/recraftv4",                            label: "Recraft V4 (art-directed, opaque)", group: "Image Gen", type: "image", capabilities: [], provider: "recraft" },
+  // v0.172.0: standard-res V4.1 (pro is 2048px+); same recraft dispatcher.
+  { id: "recraft/recraftv4-1",                          label: "Recraft V4.1 (art-directed, opaque)", group: "Image Gen", type: "image", capabilities: [], provider: "recraft" },
   { id: "recraft/recraftv4-1-pro",                      label: "Recraft V4.1 Pro (art-directed, opaque)", group: "Image Gen", type: "image", capabilities: [], provider: "recraft" },
   // v0.171.0: xAI / ByteDance image via the same proxied URL path as google/
   // openai/recraft (buildProxiedImageParams + extractProxiedImageUrl).
   // Seedream returns result.images[]; Grok Imagine returns result.image.
   { id: "xai/grok-imagine-image",                       label: "Grok Imagine Image (xAI)",     group: "Image Gen", type: "image", capabilities: [], provider: "xai" },
+  // v0.172.0: higher-fidelity Grok Imagine sibling; same xai image path.
+  { id: "xai/grok-imagine-image-quality",               label: "Grok Imagine Image Quality (xAI)", group: "Image Gen", type: "image", capabilities: [], provider: "xai" },
   { id: "bytedance/seedream-5-pro",                     label: "Seedream 5 Pro (ByteDance)",   group: "Image Gen", type: "image", capabilities: [], provider: "bytedance" },
+  // v0.172.0: lighter/faster Seedream; same bytedance image path (images[]).
+  { id: "bytedance/seedream-5-lite",                    label: "Seedream 5 Lite (ByteDance)",  group: "Image Gen", type: "image", capabilities: [], provider: "bytedance" },
   { id: "@cf/black-forest-labs/flux-2-klein-9b",        label: "FLUX 2 Klein 9B (frontier)",   group: "Image Gen",            type: "image", capabilities: [] },
   { id: "@cf/black-forest-labs/flux-2-klein-4b",        label: "FLUX 2 Klein 4B (faster)",     group: "Image Gen",            type: "image", capabilities: [] },
   { id: "@cf/black-forest-labs/flux-2-dev",             label: "FLUX 2 Dev (multi-reference)", group: "Image Gen",            type: "image", capabilities: [] },
