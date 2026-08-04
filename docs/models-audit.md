@@ -1,9 +1,8 @@
 # Model catalog audit
 
-## 2026-08-04 follow-up (Sprint 1 shipped as v0.170.0)
+## 2026-08-04 follow-up
 
-Read-only re-audit vs Workers AI (81) + unified AI models (~214). Workers AI chat/image/tts
-coverage was already current. Sprint 1 (data-only / existing dispatchers):
+### Sprint 1 (v0.170.0)
 
 | Action | Id | Notes |
 |---|---|---|
@@ -12,8 +11,16 @@ coverage was already current. Sprint 1 (data-only / existing dispatchers):
 | Added | `google/gemini-3.6-flash` | google dispatcher |
 | Added | `bytedance/seedance-2.0-mini` | Seedance i2v case |
 
-Deferred (Sprint 2+): `xai/grok-imagine-image`, `bytedance/seedream-5-pro`, `moonshotai/kimi-k3`,
-Responses-API GPT-5.6 family, reference-to-video, new TTS providers.
+### Sprint 2 (v0.171.0)
+
+| Action | Id | Notes |
+|---|---|---|
+| Added | `moonshotai/kimi-k3` | New provider; OpenAI-compat stream path |
+| Added | `xai/grok-imagine-image` | Proxied image (`result.image`) |
+| Added | `bytedance/seedream-5-pro` | Proxied image (`result.images[]`) |
+
+Deferred (later): Responses-API GPT-5.6 family, `hh1.1-r2v`, Aleph-2, Seedream lite,
+Grok Imagine quality, new TTS providers, multimodal caps on K3.
 
 ---
 

@@ -158,9 +158,24 @@ describe("extractProxiedImageUrl", () => {
     expect(extractProxiedImageUrl(r)).toBe("https://r2.dev/wrapped.png");
   });
 
+  it("reads Seedream-style result.images[] and takes the first URL (v0.171.0)", () => {
+    const r = {
+      state: "Completed",
+      result: { images: ["https://r2.dev/seedream-0.jpeg", "https://r2.dev/seedream-1.jpeg"] },
+    };
+    expect(extractProxiedImageUrl(r)).toBe("https://r2.dev/seedream-0.jpeg");
+  });
+
+  it("reads bare { images } when no result wrapper is present", () => {
+    expect(extractProxiedImageUrl({ images: ["https://r2.dev/bare-arr.png"] })).toBe(
+      "https://r2.dev/bare-arr.png",
+    );
+  });
+
   it("returns null when no image url is present", () => {
     expect(extractProxiedImageUrl({ state: "Completed", result: {} })).toBeNull();
     expect(extractProxiedImageUrl({ choices: [] })).toBeNull();
+    expect(extractProxiedImageUrl({ result: { images: [] } })).toBeNull();
   });
 
   it("does not throw on null / undefined / string", () => {

@@ -36,7 +36,8 @@ export type Provider =
   | "alibaba"
   | "pixverse"
   | "vidu"
-  | "recraft";
+  | "recraft"
+  | "moonshotai";
 
 export interface ModelEntry {
   id: string;
@@ -93,6 +94,11 @@ export const MODELS: ModelEntry[] = [
   // env.AI.run("xai/grok-build-0.1") resolves, not when a docs page updates.
 
   // Frontier
+  // v0.171.0: Kimi K3 is third-party Unified Billing (moonshotai/*), not Workers
+  // AI (@cf/moonshotai/*). Chat Completions via env.AI.run; stream reuses the
+  // OpenAI-compatible SSE path (callOpenAIStream). Vision claimed upstream;
+  // multimodal-in through the proxy is unsmoked, so caps stay empty like OpenAI.
+  { id: "moonshotai/kimi-k3",                           label: "Kimi K3 (Moonshot, 1M ctx)",  group: "Chat \u00b7 Frontier", type: "chat", capabilities: [], provider: "moonshotai", streaming: true },
   { id: "@cf/moonshotai/kimi-k2.6",                     label: "Kimi K2.6 (1T)",               group: "Chat \u00b7 Frontier", type: "chat", capabilities: ["vision"], streaming: true },
   { id: "@cf/moonshotai/kimi-k2.7-code",                label: "Kimi K2.7 Code (1T, vision)",  group: "Chat \u00b7 Frontier", type: "chat", capabilities: ["vision"], streaming: true },
   { id: "@cf/openai/gpt-oss-120b",                      label: "GPT-OSS 120B (reasoning)",     group: "Chat \u00b7 Frontier", type: "chat", capabilities: [], streaming: true },
@@ -169,6 +175,11 @@ export const MODELS: ModelEntry[] = [
   // returns webp. Added for logos/icons-on-bg/styled scenes, NOT transparency.
   { id: "recraft/recraftv4",                            label: "Recraft V4 (art-directed, opaque)", group: "Image Gen", type: "image", capabilities: [], provider: "recraft" },
   { id: "recraft/recraftv4-1-pro",                      label: "Recraft V4.1 Pro (art-directed, opaque)", group: "Image Gen", type: "image", capabilities: [], provider: "recraft" },
+  // v0.171.0: xAI / ByteDance image via the same proxied URL path as google/
+  // openai/recraft (buildProxiedImageParams + extractProxiedImageUrl).
+  // Seedream returns result.images[]; Grok Imagine returns result.image.
+  { id: "xai/grok-imagine-image",                       label: "Grok Imagine Image (xAI)",     group: "Image Gen", type: "image", capabilities: [], provider: "xai" },
+  { id: "bytedance/seedream-5-pro",                     label: "Seedream 5 Pro (ByteDance)",   group: "Image Gen", type: "image", capabilities: [], provider: "bytedance" },
   { id: "@cf/black-forest-labs/flux-2-klein-9b",        label: "FLUX 2 Klein 9B (frontier)",   group: "Image Gen",            type: "image", capabilities: [] },
   { id: "@cf/black-forest-labs/flux-2-klein-4b",        label: "FLUX 2 Klein 4B (faster)",     group: "Image Gen",            type: "image", capabilities: [] },
   { id: "@cf/black-forest-labs/flux-2-dev",             label: "FLUX 2 Dev (multi-reference)", group: "Image Gen",            type: "image", capabilities: [] },

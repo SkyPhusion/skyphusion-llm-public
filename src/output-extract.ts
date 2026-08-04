@@ -113,16 +113,28 @@ export function detectProviderFailure(result: unknown): string | null {
 }
 
 // Pull the generated-image URL out of a proxied image-gen response. Proxied
-// image models (the Google nano-banana family, added v0.21.2) return a URL,
-// not base64, wrapped in the same { state, result } envelope as video/music:
-//   { state: "Completed", result: { image: "<url>" } }
-// The bare { image: "<url>" } form (the documented Output schema, without the
-// binding wrapper) is accepted too. Returns the URL string or null.
+// image models return a URL, not base64, wrapped in the same { state, result }
+// envelope as video/music:
+//   { state: "Completed", result: { image: "<url>" } }          // google/openai/xai
+//   { state: "Completed", result: { images: ["<url>", ...] } }  // bytedance Seedream (v0.171.0)
+// Bare { image } / { images } forms (no binding wrapper) are accepted too.
+// For multi-image arrays, the first URL wins (playground stores one artifact).
 export function extractProxiedImageUrl(result: unknown): string | null {
   if (!result || typeof result !== "object") return null;
-  const r = result as { result?: { image?: unknown }; image?: unknown };
+  const r = result as {
+    result?: { image?: unknown; images?: unknown };
+    image?: unknown;
+    images?: unknown;
+  };
   const wrapped = r.result?.image;
   if (typeof wrapped === "string" && wrapped.length > 0) return wrapped;
+  const wrappedArr = r.result?.images;
+  if (Array.isArray(wrappedArr) && typeof wrappedArr[0] === "string" && wrappedArr[0].length > 0) {
+    return wrappedArr[0];
+  }
   if (typeof r.image === "string" && r.image.length > 0) return r.image;
+  if (Array.isArray(r.images) && typeof r.images[0] === "string" && r.images[0].length > 0) {
+    return r.images[0];
+  }
   return null;
 }

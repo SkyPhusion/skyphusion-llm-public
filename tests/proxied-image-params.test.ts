@@ -36,8 +36,16 @@ describe("buildProxiedImageParams", () => {
     expect("background" in params).toBe(false);
   });
 
+  it("xai (grok-imagine-image) sends bare prompt only (v0.171.0)", () => {
+    expect(buildProxiedImageParams("xai", "a puppy")).toEqual({ prompt: "a puppy" });
+  });
+
+  it("bytedance (seedream-5-pro) sends bare prompt only (v0.171.0)", () => {
+    expect(buildProxiedImageParams("bytedance", "a watch")).toEqual({ prompt: "a watch" });
+  });
+
   it("never leaks the @cf request shape for any proxied provider", () => {
-    for (const p of ["google", "openai", "recraft"] as const) {
+    for (const p of ["google", "openai", "recraft", "xai", "bytedance"] as const) {
       const params = buildProxiedImageParams(p, "x");
       for (const forbidden of ["width", "height", "steps", "negative_prompt"]) {
         expect(forbidden in params).toBe(false);
