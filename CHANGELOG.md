@@ -1,3 +1,28 @@
+## v0.174.0
+
+fix(image): Unified Billing for Grok Imagine (b64_json); OpenAI transparent BYOK carve-out
+
+Everything image-side stays on Cloudflare Unified Billing except one explicit
+exception: when `OPENAI_API_KEY` is set, `openai/gpt-image-*` call
+`api.openai.com` for transparent PNG. No other provider accepts a deployer key.
+
+### Why
+- CF Unified Billing's managed xAI credentials reject URL image output
+  ("Zero Data Retention teams do not have access to URL format"). Live-verified
+  against gateway `skyphusion-llm`: bare `{ prompt }` → 400; with
+  `response_format: "b64_json"` → 200.
+- The CF proxy still 7003-rejects OpenAI `background` / `output_format`, so
+  transparent PNG is impossible on Unified Billing; only direct OpenAI can do it.
+
+### Code
+- `src/proxied-image-params.ts` -- xai sends `response_format: "b64_json"`
+- `src/output-extract.ts` -- `extractProxiedImageAsset` (url | b64 | data-uri)
+- `src/routes/chat.ts` -- runImage stores inline base64 without fetch; OpenAI
+  BYOK branch when `env.OPENAI_API_KEY` is set
+- `src/providers/openai-image.ts` -- restored transparent-PNG direct call
+- `src/env.ts`, `wrangler.example.toml` -- optional `OPENAI_API_KEY`
+- Tests: asset extract, xai params, openai-image request shape
+
 ## v0.173.0
 
 feat(openai): Responses API path + GPT-5.6 / 5.5-pro catalog

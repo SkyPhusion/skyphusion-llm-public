@@ -137,6 +137,10 @@ enabled = true
 # (/api/prefs in D1 user_prefs). No Cloudflare Access needed when AUTH_MODE=public.
 #
 # Other worker secrets (also set via `npx wrangler secret put <NAME>`):
+#   OPENAI_API_KEY (optional sole BYOK carve-out, v0.174.0): when set,
+#     openai/gpt-image-* call api.openai.com directly for transparent PNG
+#     (background + output_format). When unset, those models stay on Unified
+#     Billing and render opaque. No other provider reads a deployer key.
 #   CF_AIG_TOKEN (required for Anthropic, xAI, OpenAI chat, Google, and proxied
 #                 image/video/music on Unified Billing when using worker-level
 #                 credentials; optional in public demo mode where users supply

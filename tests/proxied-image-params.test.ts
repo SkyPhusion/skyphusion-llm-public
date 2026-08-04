@@ -36,8 +36,11 @@ describe("buildProxiedImageParams", () => {
     expect("background" in params).toBe(false);
   });
 
-  it("xai (grok-imagine-image) sends bare prompt only (v0.171.0)", () => {
-    expect(buildProxiedImageParams("xai", "a puppy")).toEqual({ prompt: "a puppy" });
+  it("xai (grok-imagine-*) requests b64_json (Unified Billing ZDR/URL ban, v0.173.0)", () => {
+    expect(buildProxiedImageParams("xai", "a puppy")).toEqual({
+      prompt: "a puppy",
+      response_format: "b64_json",
+    });
   });
 
   it("bytedance (seedream-5-pro) sends bare prompt only (v0.171.0)", () => {

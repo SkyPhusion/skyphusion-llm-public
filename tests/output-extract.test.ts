@@ -7,7 +7,13 @@
 // the rest are regression coverage for the shapes that already shipped.
 
 import { describe, it, expect } from "vitest";
-import { extractOutput, extractUsage, detectProviderFailure, extractProxiedImageUrl } from "../src/output-extract";
+import {
+  extractOutput,
+  extractUsage,
+  detectProviderFailure,
+  extractProxiedImageUrl,
+  extractProxiedImageAsset,
+} from "../src/output-extract";
 
 describe("extractOutput", () => {
   it("returns a bare string unchanged", () => {
@@ -199,5 +205,41 @@ describe("extractProxiedImageUrl", () => {
     expect(extractProxiedImageUrl(null)).toBeNull();
     expect(extractProxiedImageUrl(undefined)).toBeNull();
     expect(extractProxiedImageUrl("nope")).toBeNull();
+  });
+
+  it("extractProxiedImageUrl ignores raw base64 (not a URL)", () => {
+    expect(extractProxiedImageUrl({ result: { image: "iVBORw0KGgo=" } })).toBeNull();
+  });
+});
+
+describe("extractProxiedImageAsset", () => {
+  it("classifies https URLs as kind url", () => {
+    expect(extractProxiedImageAsset({
+      state: "Completed",
+      result: { image: "https://r2.dev/out.png" },
+    })).toEqual({ kind: "url", url: "https://r2.dev/out.png" });
+  });
+
+  it("classifies raw base64 as kind b64 (Grok Imagine b64_json)", () => {
+    expect(extractProxiedImageAsset({
+      state: "Completed",
+      result: { image: "iVBORw0KGgoAAAANSUhEUg==" },
+    })).toEqual({
+      kind: "b64",
+      mime: "image/png",
+      base64: "iVBORw0KGgoAAAANSUhEUg==",
+    });
+  });
+
+  it("parses data: URIs into mime + base64", () => {
+    expect(extractProxiedImageAsset({
+      result: { image: "data:image/webp;base64,UklGRg==" },
+    })).toEqual({ kind: "b64", mime: "image/webp", base64: "UklGRg==" });
+  });
+
+  it("takes the first Seedream images[] URL", () => {
+    expect(extractProxiedImageAsset({
+      result: { images: ["https://cdn.example/a.jpeg", "https://cdn.example/b.jpeg"] },
+    })).toEqual({ kind: "url", url: "https://cdn.example/a.jpeg" });
   });
 });
