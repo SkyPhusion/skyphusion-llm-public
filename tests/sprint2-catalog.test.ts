@@ -2,6 +2,14 @@
 
 import { describe, it, expect } from "vitest";
 import { MODELS } from "../src/models";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const chatSrc = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../src/routes/chat.ts"),
+  "utf8",
+);
 
 describe("v0.171.0 sprint 2 catalog entries", () => {
   it("adds Kimi K3 as moonshotai chat with streaming (OpenAI-compat path)", () => {
@@ -12,6 +20,13 @@ describe("v0.171.0 sprint 2 catalog entries", () => {
     expect(m?.streaming).toBe(true);
     // Multimodal-in unsmoked; attach affordance stays off (OpenAI convention).
     expect(m?.capabilities).toEqual([]);
+  });
+
+  // Adversarial audit medium finding: stream allowlist must include moonshotai
+  // or handleChatStream 501s before runChatStream can route to callOpenAIStream.
+  it("handleChatStream allowlist includes moonshotai (no 501 before dispatch)", () => {
+    expect(chatSrc).toMatch(/model\.provider !== "moonshotai"/);
+    expect(chatSrc).toMatch(/provider === "openai" \|\| model\.provider === "moonshotai"/);
   });
 
   it("adds Grok Imagine Image as xai image", () => {

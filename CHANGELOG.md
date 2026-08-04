@@ -16,8 +16,20 @@ catalog rows.
 - `src/models.ts` -- three catalog rows; `moonshotai` on `Provider`.
 - `src/proxied-image-params.ts` -- bare `{ prompt }` for `xai` and `bytedance`.
 - `src/output-extract.ts` -- `extractProxiedImageUrl` accepts `result.images[]`.
-- `src/routes/chat.ts` -- stream dispatch treats `moonshotai` like OpenAI SSE.
+- `src/routes/chat.ts` -- stream dispatch treats `moonshotai` like OpenAI SSE;
+  stream **allowlist** also admits `moonshotai` (without this, `/api/chat/stream`
+  would 501 before the dispatcher ran; caught by adversarial audit as medium).
 - Tests: sprint2 catalog, proxied-image-params, extractProxiedImageUrl.
+
+### Adversarial audit disposition (PR #133)
+
+| Severity | Finding | Disposition |
+|---|---|---|
+| **high** | No prompt sanitization on new image providers | **Not a real vuln.** Prompt is the product input; google/openai/recraft already pass it through unchanged. "Prompt injection" into CF Unified Billing image models is intended use, not an authz bypass. |
+| medium | SSRF via `fetch(imageUrl)` after provider response | **Pre-existing** proxied-image pattern (google/openai/recraft). Trust boundary is CF Unified Billing + provider CDN URLs, not user-supplied URLs. Not introduced by this PR; known accepted risk. |
+| medium | moonshotai omitted from stream allowlist | **Real bug, fixed.** Allowlist now includes `moonshotai`. |
+| medium | `result.images[0]` not scheme-validated | Same trust as `result.image` for other providers; upstream is CF, not the end user. |
+| low | `raw: result` on image URL extract failure | Pre-existing debug aid on 502 path; authenticated user only. |
 
 Deploy smoke (with Unified Billing token):
 - `env.AI.run("moonshotai/kimi-k3", { messages })` non-stream + stream

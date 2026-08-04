@@ -167,16 +167,17 @@ export async function handleChatStream(request: Request, env: Env, ctx: Executio
   if (!model.streaming) {
     return json({ error: `Model ${model.id} does not support streaming. Use /api/chat (non-streaming) or pick a streaming-capable model.` }, { status: 400 });
   }
-  // Anthropic + Workers AI + xAI + OpenAI + Google. Workers AI catalog
-  // entries omit `provider` (the type allows this and the ModelEntry default
-  // per the type comment is "workers-ai"); Unified Billing providers set it
-  // explicitly.
+  // Anthropic + Workers AI + xAI + OpenAI + Google + Moonshot. Workers AI
+  // catalog entries omit `provider` (default "workers-ai"); Unified Billing
+  // providers set it explicitly. Keep this allowlist in lockstep with the
+  // stream dispatch switch in runChatStream (v0.171.0: moonshotai).
   const isWorkersAI = !model.provider;
   if (
     model.provider !== "anthropic" &&
     model.provider !== "xai" &&
     model.provider !== "openai" &&
     model.provider !== "google" &&
+    model.provider !== "moonshotai" &&
     !isWorkersAI
   ) {
     return json({ error: `Streaming for provider '${model.provider}' is not yet implemented.` }, { status: 501 });
