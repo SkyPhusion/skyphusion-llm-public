@@ -119,6 +119,7 @@ const SIGNUP_WINDOW = 60 * 60; // 10 signups per hour per ip
 // as a real one; otherwise the fast (low-iteration) path is a username-
 // enumeration timing oracle. Built from the constant so the two can never
 // drift. The salt/hash bytes are arbitrary; the compare always fails.
+// (Workers PBKDF2 max is 100k -- see auth-kdf.ts.)
 export const DUMMY_PASSWORD_HASH =
   `pbkdf2$sha256$${PBKDF2_ITERATIONS}$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=`;
 

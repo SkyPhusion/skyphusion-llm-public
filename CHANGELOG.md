@@ -1,3 +1,19 @@
+## v0.175.2
+
+fix(auth): Workers PBKDF2 max 100k so public signup works
+
+Signup returned CF 1101 (`scriptThrewException`): WebCrypto on Workers rejects
+PBKDF2 iteration counts above 100000. We requested 600000 (OWASP floor). Cap at
+the platform maximum and document it. No live password rows used 600k (signup
+never succeeded). Health schema probe now requires users/sessions/auth_attempts.
+
+### Code
+- src/auth-kdf.ts -- PBKDF2_ITERATIONS 600000 -> 100000
+- src/auth.ts -- dummy hash follows the constant
+- src/health-schema.ts -- require public-auth tables
+- package.json 0.175.1 -> 0.175.2, CHANGELOG.md
+- auth-kdf + auth-unit tests green
+
 ## v0.175.1
 
 fix(ci): single [vars] block for tag deploy (v0.175.0)
