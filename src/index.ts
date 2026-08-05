@@ -138,7 +138,14 @@ export default {
           username = row?.username ?? null;
         }
       } else {
-        gateway = { configured: false, source: "none" as const, gateway_id: null, cf_aig_token_set: false };
+        gateway = {
+          configured: false,
+          source: "none" as const,
+          gateway_id: null,
+          cf_aig_token_set: false,
+          control_plane_configured: false,
+          control_plane_key_set: false,
+        };
       }
       return json({ models: MODELS, mode, authenticated, user: id, username, gateway });
     }

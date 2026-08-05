@@ -360,7 +360,10 @@ async function loadModels(prefetched) {
 function renderGatewayBanner() {
   if (!gatewayBanner) return;
   const g = state.gateway;
-  if (!g || g.configured) {
+  // Boot (GET /api/models) and prefs both set configured when BYOK gateway id
+  // OR a control-plane pcp_ key is present. control_plane_configured is belt
+  // for older responses that only flipped the nested flag.
+  if (!g || g.configured || g.control_plane_configured) {
     gatewayBanner.hidden = true;
     return;
   }

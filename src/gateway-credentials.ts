@@ -14,6 +14,7 @@
 // as absent: source is only ever "user" or "none", never "worker"/"mixed".
 
 import type { Env } from "./env";
+import { resolveControlPlane } from "./control-plane";
 import { loadUserPrefs, type UserPrefsJson } from "./user-prefs";
 
 export interface GatewayCredentials {
@@ -24,10 +25,17 @@ export interface GatewayCredentials {
 export type GatewaySource = "user" | "worker" | "mixed" | "none";
 
 export interface GatewayStatus {
+  /**
+   * True when the user can run inference: AI Gateway BYOK (gateway id) and/or
+   * a control-plane pcp_ key. SPA boot (GET /api/models) uses this to hide the
+   * "configure instance" banner -- pcp-only accounts must count as configured.
+   */
   configured: boolean;
   source: GatewaySource;
   gateway_id: string | null;
   cf_aig_token_set: boolean;
+  control_plane_configured: boolean;
+  control_plane_key_set: boolean;
 }
 
 export const GATEWAY_NOT_CONFIGURED_MSG =
@@ -78,15 +86,26 @@ export async function loadGatewayCredentials(
   return resolveGatewayFromParts(prefs, env);
 }
 
-export async function loadGatewayStatus(env: Env, userEmail: string): Promise<GatewayStatus> {
-  const prefs = await loadUserPrefs(env.DB, userEmail);
+/**
+ * Build the UI/boot inference status from already-loaded prefs (no DB).
+ * Control-plane pcp_ keys count as configured even with no gateway slug.
+ */
+export function buildGatewayStatus(prefs: UserPrefsJson | null, env: Env): GatewayStatus {
   const resolved = resolveGatewayFromParts(prefs, env);
+  const cp = resolveControlPlane(prefs, env);
   return {
-    configured: !!resolved?.gatewayId,
+    configured: !!resolved?.gatewayId || !!cp,
     source: gatewaySource(prefs, env),
     gateway_id: resolved?.gatewayId ?? null,
     cf_aig_token_set: !!(resolved?.cfAigToken),
+    control_plane_configured: !!cp,
+    control_plane_key_set: !!prefs?.control_plane_key?.trim(),
   };
+}
+
+export async function loadGatewayStatus(env: Env, userEmail: string): Promise<GatewayStatus> {
+  const prefs = await loadUserPrefs(env.DB, userEmail);
+  return buildGatewayStatus(prefs, env);
 }
 
 export function maskSecret(value: string | undefined): string | null {
