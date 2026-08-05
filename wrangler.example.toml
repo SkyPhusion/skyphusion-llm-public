@@ -2,11 +2,13 @@ name = "skyphusion-llm"
 main = "src/index.ts"
 compatibility_date = "2026-05-01"
 
-# The real route is the Access-gated custom domain play.skyphusion.org, so the
-# *.workers.dev route is unneeded (and bypasses Access). workers_dev = false
-# removes it. NOTE: this is the committed TEMPLATE; the live worker deploys
-# from the per-deployer wrangler.toml (gitignored), so set it there too and
-# redeploy (defense-in-depth; fleet-chezmoi#46).
+# Live play.skyphusion.org runs AUTH_MODE=public (first-party signup; CF Access
+# is NOT used on play). Private self-hosts typically use AUTH_MODE=access with
+# Access on a custom domain. Either way, keep workers_dev = false so the
+# *.workers.dev URL is not an ungated alternate surface. NOTE: this is the
+# committed TEMPLATE; the live worker deploys from the per-deployer
+# wrangler.toml (gitignored), so set it there too and redeploy
+# (defense-in-depth; fleet-chezmoi#46).
 workers_dev = false
 
 # No scheduled tasks. The render-notify sweep that used a `*/3` cron (resolving

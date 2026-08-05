@@ -616,7 +616,7 @@ This is a Cloudflare-proxied (third-party) model, so it requires Unified Billing
 
 ## Image generation
 
-Eleven models in the catalog: Google Nano Banana Pro and OpenAI GPT Image 1.5, plus Recraft V4, FLUX 2 Klein 9B/4B, FLUX 2 Dev, FLUX-1 schnell, Lucid Origin, Phoenix 1.0, Dreamshaper 8 LCM, Stable Diffusion XL. The eight FLUX/Leonardo/Lykon/Stability models run through Workers AI (no Unified Billing required); Nano Banana Pro and Recraft V4 are proxied partner models on Unified Billing (need CF credits); GPT Image 1.5 and GPT Image 2 are proxied partner models on Unified Billing (opaque output; v0.166.0 retired the OpenAI BYOK transparent path). No deployer BYOK path remains.
+**21** image models in `src/models.ts` (or `GET /api/models?type=image`): Google Nano Banana Pro / 2 / Lite, Imagen 4, GPT Image 1.5 / 2, Recraft V4 / V4.1 / V4.1 Pro, xAI Grok Imagine Image (+ Quality), ByteDance Seedream 5 Pro / Lite, FLUX 2 Klein 9B/4B, FLUX 2 Dev, FLUX-1 schnell, Lucid Origin, Phoenix 1.0, Dreamshaper 8 LCM, Stable Diffusion XL. The eight FLUX/Leonardo/Lykon/Stability models run through Workers AI (no Unified Billing required); the rest are proxied partner models on Unified Billing (need CF credits). GPT Image 1.5 / 2 are opaque on the proxy by default; **optional deployer BYOK (v0.174.0):** set `OPENAI_API_KEY` for transparent PNG via `api.openai.com` (leave unset on public multi-tenant play).
 
 ### Google Nano Banana Pro (Unified Billing, v0.21.2)
 
