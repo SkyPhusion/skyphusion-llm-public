@@ -1,3 +1,19 @@
+## v0.175.4
+
+fix(ui): boot banner treats control-plane pcp_ as configured
+
+Hard-refresh showed "configure instance" while Account settings still had the
+saved pcp_ key. GET /api/models used loadGatewayStatus, which only checked the
+AI Gateway slug; prefs already OR'd control-plane. Align status so pcp-only
+accounts count as configured on boot.
+
+### Code
+- src/gateway-credentials.ts -- buildGatewayStatus includes resolveControlPlane
+- src/index.ts -- unauthenticated gateway shape includes CP flags
+- public/app.js -- banner also checks control_plane_configured
+- tests/gateway-credentials.test.ts -- pcp-only configured
+- package.json 0.175.3 -> 0.175.4
+
 ## v0.175.3
 
 fix(ui): clear chat composer on send; clearer 412 inference copy
