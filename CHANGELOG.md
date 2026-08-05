@@ -1,3 +1,16 @@
+## v0.175.3
+
+fix(ui): clear chat composer on send; clearer 412 inference copy
+
+Composer only cleared after a successful response, so a 412 (no gateway /
+no pcp_ key) left the prompt stuck and looked like a hang. Clear on send.
+Update the gateway-not-configured message to mention control-plane pcp_ keys.
+
+### Code
+- public/app.js -- clear input on run(); always focus after fail
+- src/gateway-credentials.ts -- GATEWAY_NOT_CONFIGURED_MSG mentions pcp_
+- package.json 0.175.2 -> 0.175.3, CHANGELOG.md
+
 ## v0.175.2
 
 fix(auth): Workers PBKDF2 max 100k so public signup works
