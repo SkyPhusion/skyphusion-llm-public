@@ -9,13 +9,16 @@
 //
 //   pbkdf2$sha256$<iterations>$<salt_b64>$<hash_b64>
 //
-// 600000 iterations is the OWASP 2023 floor for PBKDF2-HMAC-SHA256; it lands
-// around 50-100ms on the paid Workers CPU budget, well inside the request CPU
-// limit. Salt is 16 random bytes; the derived key is 32 bytes.
+// Iteration count: Cloudflare Workers caps PBKDF2 at 100_000 (measured 2026-08-05:
+// "iteration counts above 100000 are not supported"). That is the platform max;
+// OWASP's 600k floor is unreachable on this runtime. Salt is 16 random bytes;
+// the derived key is 32 bytes. The PHC string stores the count so a future
+// runtime raise can rehash on login without a schema migration.
 
 const KDF_ALGO = "pbkdf2";
 const KDF_HASH = "sha256";
-export const PBKDF2_ITERATIONS = 600000;
+/** Workers-hard ceiling; do not raise past 100000 without verifying CF support. */
+export const PBKDF2_ITERATIONS = 100_000;
 const SALT_BYTES = 16;
 const KEY_BYTES = 32;
 

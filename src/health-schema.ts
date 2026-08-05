@@ -10,6 +10,10 @@ export const REQUIRED_D1_TABLES = [
   "project_documents",
   "project_messages",
   "user_prefs",
+  // Public-mode auth (v0.167.0 / migration 0002). Missing these makes signup 500.
+  "users",
+  "sessions",
+  "auth_attempts",
 ] as const;
 
 export async function probeD1Schema(db: D1Database): Promise<{ ok: boolean; missing: string[] }> {
