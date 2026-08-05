@@ -1,3 +1,17 @@
+## v0.175.1
+
+fix(ci): single [vars] block for tag deploy (v0.175.0)
+
+v0.175.0 deploy failed: CI `sed` uncomments every `# [vars]` line, and the
+control-plane docs had added a second one, so rendered wrangler.toml redefined
+the vars table (Invalid TOML). Fold control-plane var docs into the one
+commented block AUTH_MODE uses.
+
+No runtime code change; re-ships v0.175.0 control-plane chat.
+
+### Code
+- wrangler.example.toml, package.json 0.175.0 -> 0.175.1, CHANGELOG.md
+
 ## v0.175.0
 
 feat: optional control-plane backend for metered chat (#150)
