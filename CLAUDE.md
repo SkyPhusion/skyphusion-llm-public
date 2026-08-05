@@ -4,16 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-This repo is **prism** (renamed from `skyphusion-llm-public`), deployed at **play.skyphusion.org** in **public** auth mode (`AUTH_MODE=public`, first-party accounts, no CF Access). Only the repo was renamed: the deployed Worker, D1, R2, and Vectorize keep their original `skyphusion-llm` names, so binding/resource names in this file and `wrangler.example.toml` still read `skyphusion-llm` on purpose.
+This repo is **prism** (renamed from `skyphusion-llm-public`), deployed at **play.skyphusion.org** in
+**public** auth mode (`AUTH_MODE=public`, first-party accounts). **Cloudflare Access is retired on
+play**; private self-hosts still use `AUTH_MODE=access` with Access when they want it. Only the repo
+was renamed: the deployed Worker, D1, R2, and Vectorize keep their original `skyphusion-llm*` names,
+so binding/resource names in this file and `wrangler.example.toml` still read `skyphusion-llm` on
+purpose.
 
-A multimodal AI playground deployed as a **single Cloudflare Worker** (no framework, no build step beyond TypeScript). One web UI exposes chat, image / TTS / STT / video / music generation, and RAG over files of any type (see `src/models.ts` for the live catalog count). Private self-hosts use `AUTH_MODE=access` with Cloudflare Access instead. The interesting part is the patterns, not the model count: every modality funnels through `env.AI.run()` (the unified AI binding) or gateway provider endpoints with **Cloudflare Unified Billing**. Sole deployer BYOK exception (v0.174.0): optional `OPENAI_API_KEY` for transparent `openai/gpt-image-*` PNG; chat and all other providers stay on Unified Billing only. Opt-in web search retrieves from self-hosted SearXNG (`SEARXNG_URL`) plus keyless Wikipedia.
+A multimodal AI playground deployed as a **single Cloudflare Worker** (no framework, no build step
+beyond TypeScript). One web UI exposes chat, image / TTS / STT / video / music generation, and RAG
+over files of any type (see `src/models.ts` for the live catalog count). The interesting part is the
+patterns, not the model count: every modality funnels through `env.AI.run()` (the unified AI binding)
+or gateway provider endpoints with **Cloudflare AI Gateway Unified Billing**. Sole deployer BYOK
+exception: optional `OPENAI_API_KEY` for transparent `openai/gpt-image-*` PNG only; chat and all other
+providers stay on Unified Billing. Opt-in web search retrieves from self-hosted SearXNG
+(`SEARXNG_URL`) plus keyless Wikipedia.
+
+Sibling skeleton kits (clients / commercial plane): `prism-android`, `prism-ios`,
+`prism-control-plane` (honest skeleton status in each README). Current Worker version is root
+`package.json` (trust the pin + tags; do not freeze a version string in this file forever).
 
 ## Commands
 
 ```bash
 npm run dev              # wrangler dev (local; no Access / no public session by default)
 npm run deploy           # wrangler deploy (local only; prod is tag-gated in CI)
-npm run typecheck        # tsc --noEmit — CI gate; run before pushing
+npm run typecheck        # tsc --noEmit -- CI gate; run before pushing (not part of vitest)
 npm test                 # vitest run (one-shot)
 npm run test:watch       # vitest watch
 npx vitest run tests/xai-sse.test.ts   # single test file
@@ -32,16 +48,16 @@ Debugging a deployed worker: `npx wrangler tail`. Inspecting a stuck long-runnin
 
 `src/index.ts` is the router + orchestrator: its `fetch` handler is the route table, and per-concern handlers live in `src/routes/*` (`chat`, `history`, `conversations`, `documents`, `projects`, `artifacts`, `prefs`, `health`, `workflow`) over the shared primitives in `src/routes/shared.ts` and the RAG engine in `src/routes/rag.ts` (split out in v0.168.1, prism#85). Other pure/reusable logic is extracted into modules so `index.ts` stays thin:
 
-- `src/models.ts` — **the model catalog**, single source of truth. Each entry's `id` is the routing key; `type` (`chat`|`image`|`tts`|`video`|`stt`|`music`|`voice`) picks the dispatcher, `provider` (default `workers-ai`) picks the code path, `capabilities`/`streaming` drive the UI. Adding an entry here flows automatically to `GET /api/models` and the frontend picker.
+- `src/models.ts` -- **the model catalog**, single source of truth. Each entry's `id` is the routing key; `type` (`chat`|`image`|`tts`|`video`|`stt`|`music`|`voice`) picks the dispatcher, `provider` (default `workers-ai`) picks the code path, `capabilities`/`streaming` drive the UI. Adding an entry here flows automatically to `GET /api/models` and the frontend picker.
 - `src/providers/*.ts` -- per-provider dispatch helpers (`callAnthropic`, `callXai`, `callGemini`, `callWorkersAIStream`, `callOpenAIStream`, plus `openai-image.ts` for the transparent-PNG carve-out). Anthropic, xAI, and Gemini hit AI Gateway provider endpoints with keyless Unified Billing auth (`cf-aig-authorization`). OpenAI chat and Workers AI use `env.AI.run`. Proxied image models (google/openai/recraft/xai/bytedance) go through `env.AI.run` on Unified Billing; when `OPENAI_API_KEY` is set, `openai/gpt-image-*` may call `api.openai.com` for transparent PNG instead.
-- `src/parsers/*.ts` — streaming adapters, one per wire format (Anthropic native SSE, OpenAI-compatible SSE for xAI/OpenAI, Workers AI SSE, Gemini SSE), all normalized to a common `ProviderStreamEvent` envelope (`parsers/types.ts`). `sse-framer.ts` is the shared line framer. **These are the bulk of the unit tests.**
-- `src/ai-binding.ts` — `aiRun()` wraps `env.AI.run` with the gateway opt; `aiLogId()` reads the AI Gateway log ID after a call.
-- `src/output-extract.ts` — normalizes wildly different provider response shapes into output text/usage; `detectProviderFailure`, `extractProxiedImageAsset` (URL or inline base64).
-- `src/env.ts` — hand-authored `Env` binding interface (mirror of `wrangler.toml` bindings). `src/types.ts` — the `InputAttachment` discriminated union (request boundary).
-- `src/chunking.ts` / `src/discord.ts` — RAG chunking and DiscordChatExporter ingestion.
-- `src/zip.ts` — zero-dependency ZIP reader (central-directory parser + `DecompressionStream`) for RAG `.zip` import; each inner file is ingested as its own document via `ingestDocument` in `index.ts`. The import runs durably in `LongRunWorkflow` (`kind: "zip_import"`), one step per file; the client polls `GET /api/import/:id`.
-- `src/longrun-params.ts` / `src/proxied-image-params.ts` — param builders for video/music and proxied image gen.
-- `public/` — vanilla JS/CSS/HTML frontend (`app.js`, `streaming-client.js`, `styles.css`, `index.html`), served via Workers Assets. No framework, no build.
+- `src/parsers/*.ts` -- streaming adapters, one per wire format (Anthropic native SSE, OpenAI-compatible SSE for xAI/OpenAI, Workers AI SSE, Gemini SSE), all normalized to a common `ProviderStreamEvent` envelope (`parsers/types.ts`). `sse-framer.ts` is the shared line framer. **These are the bulk of the unit tests.**
+- `src/ai-binding.ts` -- `aiRun()` wraps `env.AI.run` with the gateway opt; `aiLogId()` reads the AI Gateway log ID after a call.
+- `src/output-extract.ts` -- normalizes wildly different provider response shapes into output text/usage; `detectProviderFailure`, `extractProxiedImageAsset` (URL or inline base64).
+- `src/env.ts` -- hand-authored `Env` binding interface (mirror of `wrangler.toml` bindings). `src/types.ts` -- the `InputAttachment` discriminated union (request boundary).
+- `src/chunking.ts` / `src/discord.ts` -- RAG chunking and DiscordChatExporter ingestion.
+- `src/zip.ts` -- zero-dependency ZIP reader (central-directory parser + `DecompressionStream`) for RAG `.zip` import; each inner file is ingested as its own document via `ingestDocument` in `index.ts`. The import runs durably in `LongRunWorkflow` (`kind: "zip_import"`), one step per file; the client polls `GET /api/import/:id`.
+- `src/longrun-params.ts` / `src/proxied-image-params.ts` -- param builders for video/music and proxied image gen.
+- `public/` -- vanilla JS/CSS/HTML frontend (`app.js`, `streaming-client.js`, `styles.css`, `index.html`), served via Workers Assets. No framework, no build.
 
 ### Request dispatch
 
@@ -49,7 +65,7 @@ Debugging a deployed worker: `npx wrangler tail`. Inspecting a stuck long-runnin
 
 ### Storage model
 
-- **D1** (`schema.sql`): `chats` (metadata + R2 keys + multi-turn `conversation_id` + `job_id` for long jobs), `documents`/`chunks` (RAG text), `projects`/`project_documents`/`project_messages`. **No binary ever touches D1** — rows reference R2 keys.
+- **D1** (`schema.sql`): `chats` (metadata + R2 keys + multi-turn `conversation_id` + `job_id` for long jobs), `documents`/`chunks` (RAG text), `projects`/`project_documents`/`project_messages`. **No binary ever touches D1** -- rows reference R2 keys.
 - **R2**: all binary artifacts (input attachments + generated output). Ownership enforced via `customMetadata.user_email` on the object; the worker is the only public surface and streams objects through `GET /api/artifact/*` after an ownership check.
 - **Vectorize** (`VEC`): RAG embeddings, 768-dim BGE-base, cosine.
 
@@ -62,7 +78,7 @@ Two modes via `AUTH_MODE` (see README):
 
 `resolveIdentity` in `src/auth.ts` is the single seam either way. `wrangler dev` has no Access and no session by default; do not expose a local dev port publicly.
 
-### Long-running jobs (video/music, 30s–3min)
+### Long-running jobs (video/music, 30s-3min)
 
 These exceed the ~30s `ctx.waitUntil` budget, so they use **Cloudflare Workflows**. The `LongRunWorkflow` class (`src/routes/workflow.ts`, exported from `src/index.ts`) holds the blocking `env.AI.run` call alive across retryable step boundaries; the workflow instance ID is persisted as `chats.job_id`. **Workflows do not run under `wrangler dev --remote`** -- deploy to test Unified Billing video/music.
 
@@ -76,7 +92,7 @@ Declared in `wrangler.example.toml` (the committed template; the real `wrangler.
 
 | Binding | Type | Purpose |
 |---|---|---|
-| `AI` | `[ai]` | Unified AI binding — Workers AI models directly + Unified Billing partners through AI Gateway. |
+| `AI` | `[ai]` | Unified AI binding -- Workers AI models directly + Unified Billing partners through AI Gateway. |
 | `DB` | `[[d1_databases]]` (`skyphusion-llm`) | Chat metadata, conversations, RAG chunk text, projects. Fill in `database_id` after `wrangler d1 create`. |
 | `R2` | `[[r2_buckets]]` (`skyphusion-llm`) | All binary artifacts (input + generated output). |
 | `VEC` | `[[vectorize]]` (`skyphusion-llm-vec`) | RAG embeddings, 768-dim (`@cf/baai/bge-base-en-v1.5`), cosine. |
@@ -102,7 +118,7 @@ All matched in the single `fetch` handler in `src/index.ts` (see the one-line po
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Liveness probe; no binding access, always 200. |
-| GET | `/health/deep` | Deep check: D1, D1 schema tables, R2, Vectorize, AI Gateway config (50–200ms). |
+| GET | `/health/deep` | Deep check: D1, D1 schema tables, R2, Vectorize, AI Gateway config (50-200ms). |
 | GET | `/api/models` | List models with `type` + capability flags; returns caller email + `gateway` status. |
 | GET / PATCH | `/api/prefs` | Per-user AI Gateway settings (slug + token); v0.164.0 public demo mode. |
 | POST | `/api/chat` | Run a model; dispatches by `model.type`. Persists a row. |
@@ -124,7 +140,7 @@ All matched in the single `fetch` handler in `src/index.ts` (see the one-line po
 | POST / DELETE | `/api/projects/:pid/documents/:did` | Attach / detach a document. |
 | POST | `/api/projects/:id/import-discord` | Import a DiscordChatExporter JSON export. |
 
-## Conventions (from CONTRIBUTING.md — enforced)
+## Conventions (from CONTRIBUTING.md -- enforced)
 
 - **No em-dashes (U+2014) or en-dashes (U+2013) anywhere in source.** Use commas, semicolons, or parentheses.
 - **No build step, no framework, no CSS preprocessor.** Vanilla JS/HTML/CSS frontend is deliberate; framework-migration PRs are rejected.
@@ -136,7 +152,7 @@ All matched in the single `fetch` handler in `src/index.ts` (see the one-line po
 
 ### Schema migrations
 
-`schema.sql` is for **fresh databases only**. Upgrade an existing DB with the per-version delta files (`migrate-v*.sql`) and the steps documented in the CHANGELOG / README — **never re-run `schema.sql`** against a populated DB.
+`schema.sql` is for **fresh databases only**. Upgrade an existing DB with the per-version delta files (`migrate-v*.sql`) and the steps documented in the CHANGELOG / README -- **never re-run `schema.sql`** against a populated DB.
 
 ## Testing
 
