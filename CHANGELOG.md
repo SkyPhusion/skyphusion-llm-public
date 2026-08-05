@@ -1,3 +1,21 @@
+## v0.175.6
+
+fix(dist): align `@skyphusion/create-prism` version with app release train
+
+v0.175.5's GitHub Release fired `publish-npm.yml`, which requires the Release
+tag to match `packages/create-prism/package.json`. create-prism was still at
+`0.1.0` (scaffold launch version), so npm publish failed while the Worker
+deploy was fine. Bump create-prism to the same SemVer as root `package.json`
+and read `--version` from that file so the two cannot drift again.
+
+Scaffolded apps still start at `0.1.0` (assemble-template); only the CLI
+package version moves with prism releases.
+
+### Code
+- packages/create-prism/package.json 0.1.0 -> 0.175.6
+- packages/create-prism/index.js -- PKG_VERSION from package.json
+- package.json 0.175.5 -> 0.175.6, CHANGELOG.md
+
 ## v0.175.5
 
 ### Removed
