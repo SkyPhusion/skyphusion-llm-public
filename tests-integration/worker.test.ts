@@ -296,8 +296,11 @@ describe("gateway 412 refusal path", () => {
       body: { model: WORKERS_AI_CHAT, user_input: "hi" },
     });
     expect(res.status).toBe(412);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toContain("AI Gateway not configured");
+    const body = (await res.json()) as { error: string; code?: string };
+    // Copy mentions both BYOK gateway and control-plane pcp_ (v0.175.3).
+    expect(body.code).toBe("gateway_not_configured");
+    expect(body.error).toContain("Inference not configured");
+    expect(body.error).toMatch(/pcp_/);
   });
 
   it("positive control: once a gateway id is set, the 412 gate no longer fires", async () => {
