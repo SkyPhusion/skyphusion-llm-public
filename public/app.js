@@ -367,7 +367,7 @@ function renderGatewayBanner() {
   gatewayBanner.hidden = false;
   if (gatewayBannerText) {
     gatewayBannerText.textContent =
-      "AI Gateway not configured. Set your gateway slug and a Cloudflare API token with AI Gateway Run permission to run models on your account.";
+      "Inference not configured. Set AI Gateway (BYOK) or a control-plane pcp_ client key under Account settings.";
   }
 }
 
@@ -2109,6 +2109,10 @@ const gatewayModalId       = $("#gateway-modal-id");
 const gatewayModalToken    = $("#gateway-modal-token");
 const gatewayModalTokenHint= $("#gateway-modal-token-hint");
 const gatewayModalClear    = $("#gateway-modal-clear-token");
+const gatewayModalCpKey    = $("#gateway-modal-cp-key");
+const gatewayModalCpKeyHint= $("#gateway-modal-cp-key-hint");
+const gatewayModalCpUrlLabel = $("#gateway-modal-cp-url-label");
+const gatewayModalClearCp  = $("#gateway-modal-clear-cp-key");
 const gatewayModalError    = $("#gateway-modal-error");
 const gatewayModalSave     = $("#gateway-modal-save");
 const gatewayModalCancel   = $("#gateway-modal-cancel");
@@ -2263,6 +2267,8 @@ async function openGatewayModal() {
   gatewayModalError.textContent = "";
   gatewayModalToken.value = "";
   gatewayModalClear.checked = false;
+  if (gatewayModalCpKey) gatewayModalCpKey.value = "";
+  if (gatewayModalClearCp) gatewayModalClearCp.checked = false;
   try {
     const prefs = await api("/api/prefs");
     gatewayModalId.value = prefs.gateway_id || "";
@@ -2271,11 +2277,24 @@ async function openGatewayModal() {
         ? `saved token: ${prefs.cf_aig_token_preview || "••••"}`
         : "no token saved yet";
     }
+    if (gatewayModalCpUrlLabel && prefs.control_plane_url) {
+      try {
+        gatewayModalCpUrlLabel.textContent = new URL(prefs.control_plane_url).host;
+      } catch {
+        gatewayModalCpUrlLabel.textContent = "play-proxy.skyphusion.org";
+      }
+    }
+    if (gatewayModalCpKeyHint) {
+      gatewayModalCpKeyHint.textContent = prefs.control_plane_key_set
+        ? `saved key: ${prefs.control_plane_key_preview || "••••"} (control-plane mode on)`
+        : "no control-plane key (chat uses AI Gateway)";
+    }
     state.gateway = {
       configured: !!prefs.configured,
       source: prefs.source,
       gateway_id: prefs.gateway_id,
       cf_aig_token_set: prefs.cf_aig_token_set,
+      control_plane_configured: !!prefs.control_plane_configured,
     };
     renderGatewayBanner();
   } catch (err) {
@@ -2307,8 +2326,14 @@ async function saveGatewayModal() {
   } else if (gatewayModalToken.value.trim()) {
     body.cf_aig_token = gatewayModalToken.value.trim();
   }
-  if (!gateway_id && !body.cf_aig_token && !body.clear_cf_aig_token) {
-    showGatewayModalError("enter a gateway slug and/or API token");
+  if (gatewayModalClearCp && gatewayModalClearCp.checked) {
+    body.clear_control_plane_key = true;
+  } else if (gatewayModalCpKey && gatewayModalCpKey.value.trim()) {
+    body.control_plane_key = gatewayModalCpKey.value.trim();
+  }
+  const hasCp = body.control_plane_key || body.clear_control_plane_key;
+  if (!gateway_id && !body.cf_aig_token && !body.clear_cf_aig_token && !hasCp) {
+    showGatewayModalError("enter a gateway slug, API token, and/or control-plane key");
     return;
   }
   try {
@@ -2318,6 +2343,7 @@ async function saveGatewayModal() {
       source: prefs.source,
       gateway_id: prefs.gateway_id,
       cf_aig_token_set: prefs.cf_aig_token_set,
+      control_plane_configured: !!prefs.control_plane_configured,
     };
     renderGatewayBanner();
     closeGatewayModal();

@@ -15,6 +15,11 @@ import {
   GATEWAY_NOT_CONFIGURED_MSG,
   CF_AIG_TOKEN_REQUIRED_MSG,
 } from "../gateway-credentials";
+import {
+  resolveControlPlane,
+  type ControlPlaneCredentials,
+} from "../control-plane";
+import { loadUserPrefs } from "../user-prefs";
 import { resolveIdentity } from "../auth";
 
 // ---------- Types ----------
@@ -142,6 +147,30 @@ export async function requireAiContext(
     return json({ error: CF_AIG_TOKEN_REQUIRED_MSG, code: "cf_aig_token_required" }, { status: 412 });
   }
   return { env, gateway };
+}
+
+/**
+ * Inference backend for a user: control plane (pcp_) wins when configured,
+ * else AI Gateway BYOK / worker secrets.
+ */
+export type InferenceBackend =
+  | { kind: "control_plane"; cp: ControlPlaneCredentials }
+  | { kind: "gateway"; ctx: AiContext };
+
+export async function requireInferenceBackend(
+  env: Env,
+  userEmail: string,
+  opts?: { requireCfToken?: boolean },
+): Promise<InferenceBackend | Response> {
+  const prefs = await loadUserPrefs(env.DB, userEmail);
+  // Control-plane key intentionally replaces gateway BYOK for chat: the proxy
+  // holds host credentials. Gateway token is not required when CP is active.
+  const cp = resolveControlPlane(prefs, env);
+  if (cp) return { kind: "control_plane", cp };
+
+  const gatewayOrErr = await requireAiContext(env, userEmail, opts);
+  if (gatewayOrErr instanceof Response) return gatewayOrErr;
+  return { kind: "gateway", ctx: gatewayOrErr };
 }
 
 export async function r2Put(env: Env, prefix: "in" | "out", mime: string, bytes: Uint8Array, userEmail: string): Promise<string> {

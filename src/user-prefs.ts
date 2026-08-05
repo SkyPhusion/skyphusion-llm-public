@@ -7,6 +7,11 @@
 export interface UserPrefsJson {
   gateway_id?: string;
   cf_aig_token?: string;
+  /**
+   * When set, chat bills through prism-control-plane (allowlisted origin from
+   * worker config, never a user-supplied URL -- SSRF). Client key `pcp_…`.
+   */
+  control_plane_key?: string;
 }
 
 function parsePrefsJson(raw: string | null | undefined): UserPrefsJson {
@@ -47,6 +52,11 @@ export async function saveUserPrefs(
     const trimmed = patch.cf_aig_token.trim();
     if (trimmed) merged.cf_aig_token = trimmed;
     else delete merged.cf_aig_token;
+  }
+  if (patch.control_plane_key !== undefined) {
+    const trimmed = patch.control_plane_key.trim();
+    if (trimmed) merged.control_plane_key = trimmed;
+    else delete merged.control_plane_key;
   }
 
   await db.prepare(
