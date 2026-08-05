@@ -4,7 +4,7 @@
 [![Typecheck](https://github.com/skyphusion-labs/prism/actions/workflows/typecheck.yml/badge.svg)](https://github.com/skyphusion-labs/prism/actions/workflows/typecheck.yml)
 [![Voice chat](https://img.shields.io/badge/%F0%9F%8E%99%EF%B8%8F_voice_chat-speak_%26_hear_chat_models-6d8cff)](#voice-chat)
 
-A multimodal AI playground deployed as a single Cloudflare Worker. **Live demo:** https://play.skyphusion.org (free signup, bring your own AI Gateway). **~45 chat models** across Workers AI, Anthropic, xAI, OpenAI, Google, and Moonshot (see `GET /api/models`), **hands-free voice chat** (talk to any chat model and hear it reply), image / TTS / STT / video / music generation, cross-model artifact reuse within a conversation (v0.21.7), RAG over files of any type (v0.23.0), projects that scope a knowledge base and system prompt, Discord chat-log ingestion, opt-in web search via self-hosted SearXNG and Wikipedia, SSE streaming on supported chat models, and multi-turn conversations. One web UI with first-party accounts, per-user history, R2 for all binary artifacts.
+A multimodal AI playground deployed as a single Cloudflare Worker. **Live demo:** https://play.skyphusion.org (free signup, bring your own AI Gateway). **~44 chat models** across Workers AI, Anthropic, xAI, OpenAI, Google, and Moonshot (see `GET /api/models`), **hands-free voice chat** (talk to any chat model and hear it reply), image / TTS / STT / video / music generation, cross-model artifact reuse within a conversation (v0.21.7), RAG over files of any type (v0.23.0), projects that scope a knowledge base and system prompt, Discord chat-log ingestion, opt-in web search via self-hosted SearXNG and Wikipedia, SSE streaming on supported chat models, and multi-turn conversations. One web UI with first-party accounts, per-user history, R2 for all binary artifacts.
 
 <p align="center">
   <img src="docs/screenshot-desktop.jpg" alt="Desktop UI: image generation with Nano Banana Pro" width="800"><br><br>
@@ -36,12 +36,12 @@ One Worker, no framework, no build step beyond TypeScript. The interesting parts
 - **Cloudflare Workflows** owns long-running Unified Billing video and music generation (30s to 3min jobs). The `LongRunWorkflow` class holds the blocking `env.AI.run` call alive across step boundaries that `ctx.waitUntil` cannot.
 - **Two auth modes, one identity seam.** An `AUTH_MODE` setting picks how the worker learns who you are: **public** mode (the hosted product) runs first-party username/password accounts behind an opaque server-side session cookie, while **access** mode (the default, for private self-host) trusts Cloudflare Access's `Cf-Access-Authenticated-User-Email`. Either way a single stable, opaque account id scopes history and R2 ownership (`customMetadata.user_email`), so cross-user access is impossible even if a UUID is guessed.
 - **Client-side video keyframe extraction** sends 8 evenly-spaced frames to vision-capable chat models instead of uploading the full video file.
-- **Searchable model picker** (v0.111.0) groups the live catalog (~94 entries across 7 modalities as of v0.174.3) with capability badges (vision, stream) inline; type to filter by name.
+- **Searchable model picker** (v0.111.0) groups the live catalog (~93 entries across 7 modalities as of v0.175.6) with capability badges (vision, stream) inline; type to filter by name.
 
 ## Features
 
 **Chat (see `GET /api/models` / `src/models.ts` for the live list):**
-- Workers AI: Llama 4 Scout, Llama 3.x family, Qwen3 30B / QwQ 32B / Qwen2.5 Coder 32B, DeepSeek R1, Mistral Small 3.1, Gemma 4 26B, Granite 4 Micro, Nemotron 3 120B, GLM-4.7 Flash / GLM-5.2, GPT-OSS 120B / 20B, Kimi K2.6 / K2.7 Code, SEA-LION v4 27B, LLaVA 1.5 7B (single-shot vision; the one non-streaming model)
+- Workers AI: Llama 4 Scout, Llama 3.x family, Qwen3 30B / QwQ 32B / Qwen2.5 Coder 32B, DeepSeek R1, Mistral Small 3.1, Gemma 4 26B, Granite 4 Micro, Nemotron 3 120B, GLM-4.7 Flash / GLM-5.2, GPT-OSS 120B / 20B, Kimi K2.6 / K2.7 Code, SEA-LION v4 27B, removed (single-shot vision; the one non-streaming model)
 - Anthropic (Unified Billing): Sonnet 5, Opus 5, Opus 4.8 / 4.7 / 4.6, Sonnet 4.6, Haiku 4.5 (all streaming; Fable needs `binding: true`)
 - xAI (Unified Billing): Grok 4.5, Grok 4.3, Grok 4.20 (Multi-Agent and Reasoning)
 - OpenAI (Unified Billing): GPT-5.5 / 5.5-pro, GPT-5.6 Sol / Terra / Luna (Responses API), GPT-5.4 / mini, o4-mini
@@ -792,7 +792,6 @@ If your use case is the legal-research pattern (citation accuracy matters, sourc
 
 ## Streaming
 
-`POST /api/chat/stream` accepts the same request body as `POST /api/chat` and returns `text/event-stream`. Available for any chat model flagged `streaming: true` in the catalog (almost all chat models; LLaVA 1.5 is the usual single-shot exception). Providers include Workers AI, Anthropic, xAI, OpenAI (Chat Completions and Responses), Google Gemini, and Moonshot.
 
 Wire format:
 
@@ -827,7 +826,6 @@ Note: AI Gateway does not surface `cf-aig-log-id` on proxied SSE responses, so s
 - `capabilities`: array. Currently only `"vision"` is recognized; applies to chat models only.
 - `provider` (optional): `"workers-ai"` (default) | `"anthropic"` | `"xai"` | `"openai"` | `"google"` | `"moonshotai"` | `"bytedance"` | `"minimax"` | `"runwayml"` | `"alibaba"` | `"pixverse"` | `"vidu"` | `"recraft"` (Unified Billing). Drives the call dispatch.
 - `api` (optional, OpenAI chat only): `"responses"` for Responses API models (v0.173.0); omit for Chat Completions.
-- `streaming` (optional, chat only): when `true`, the model is eligible for `POST /api/chat/stream`. Nearly all chat models; LLaVA 1.5 is the usual non-stream exception.
 
 Full Workers AI catalog: https://developers.cloudflare.com/workers-ai/models/. Skip anything tagged "Planned deprecation."
 

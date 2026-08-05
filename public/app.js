@@ -629,7 +629,7 @@ async function handleFiles(files) {
   // STT and FLUX-2 despite the affordance UI being shown.
   const isFlux2 = m.id.startsWith("@cf/black-forest-labs/flux-2-");
   // v0.21.10: image-input (i2v) models accept a source image too. Without this,
-  // the early guard dropped the file before the per-file branch ran — which
+  // the early guard dropped the file before the per-file branch ran -- which
   // killed BOTH the picker and drag/drop for i2v (the v0.21.9 fix patched
   // downstream of this return and never reached).
   const isImageInput = (m.capabilities || []).includes("image-input");
