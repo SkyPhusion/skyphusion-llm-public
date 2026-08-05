@@ -7,6 +7,13 @@
 export interface UserPrefsJson {
   gateway_id?: string;
   cf_aig_token?: string;
+  /**
+   * When set with control_plane_key, chat (and later other doors) bill through
+   * prism-control-plane instead of the user's AI Gateway BYOK.
+   */
+  control_plane_url?: string;
+  /** Client key `pcp_…` (never logged; masked on prefs GET). */
+  control_plane_key?: string;
 }
 
 function parsePrefsJson(raw: string | null | undefined): UserPrefsJson {
@@ -47,6 +54,16 @@ export async function saveUserPrefs(
     const trimmed = patch.cf_aig_token.trim();
     if (trimmed) merged.cf_aig_token = trimmed;
     else delete merged.cf_aig_token;
+  }
+  if (patch.control_plane_url !== undefined) {
+    const trimmed = patch.control_plane_url.trim().replace(/\/+$/, "");
+    if (trimmed) merged.control_plane_url = trimmed;
+    else delete merged.control_plane_url;
+  }
+  if (patch.control_plane_key !== undefined) {
+    const trimmed = patch.control_plane_key.trim();
+    if (trimmed) merged.control_plane_key = trimmed;
+    else delete merged.control_plane_key;
   }
 
   await db.prepare(

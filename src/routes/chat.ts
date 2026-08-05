@@ -23,11 +23,13 @@ import {
   json,
   getUserEmail,
   requireAiContext,
+  requireInferenceBackend,
   modelNeedsCfAigToken,
   r2Put,
   resolveAttachmentKeys,
   safeParseJson,
 } from "./shared";
+import { controlPlaneChat, type ControlPlaneChatMessage } from "../control-plane";
 import type {
   ChatRequest,
   RetrievedChunk,
@@ -191,9 +193,13 @@ export async function handleChatStream(request: Request, env: Env, ctx: Executio
 
 export async function runChat(request: Request, env: Env, model: ModelEntry, body: ChatRequest): Promise<Response> {
   const userEmail = await getUserEmail(request, env);
-  const ctxOrErr = await requireAiContext(env, userEmail, { requireCfToken: modelNeedsCfAigToken(model) });
-  if (ctxOrErr instanceof Response) return ctxOrErr;
-  const aiCtx = ctxOrErr;
+  const backendOrErr = await requireInferenceBackend(env, userEmail, {
+    requireCfToken: modelNeedsCfAigToken(model),
+  });
+  if (backendOrErr instanceof Response) return backendOrErr;
+  const backend = backendOrErr;
+  // Gateway AI context when not using control plane (Whisper + provider dispatch).
+  const aiCtx: AiContext | null = backend.kind === "gateway" ? backend.ctx : null;
   const inputs: InputAttachment[] = body.attachments ?? [];
 
   // v0.20.0: resolve project_id to row, apply per-project system_prompt
@@ -263,6 +269,16 @@ export async function runChat(request: Request, env: Env, model: ModelEntry, bod
       imageDataUrls.push(att.data!); // guaranteed by the parsed guard above (data may be hydrated from a key)
       persistedAtt.push({ type: "image", key, mime: parsed.mime, filename: att.filename });
     } else if (att.type === "audio") {
+      if (!aiCtx) {
+        return json(
+          {
+            error:
+              "Audio attachments need on-worker Whisper, which is unavailable when control-plane mode is on. Clear the control-plane key or remove the audio attachment.",
+            code: "control_plane_no_audio",
+          },
+          { status: 400 },
+        );
+      }
       const parsed = att.data ? parseDataUrl(att.data) : null;
       if (!parsed) return json({ error: "Invalid audio data URL" }, { status: 400 });
       try {
@@ -394,7 +410,48 @@ export async function runChat(request: Request, env: Env, model: ModelEntry, bod
   let result: unknown;
   let logId: string | null = null;
   try {
-    if (model.id === "@cf/llava-hf/llava-1.5-7b-hf") {
+    if (backend.kind === "control_plane") {
+      // Control plane: OpenAI-compatible messages (string content only for v1).
+      // Multimodal image parts stay on the gateway path until CP accepts them.
+      if (imageDataUrls.length > 0) {
+        return json(
+          {
+            error:
+              "Vision attachments are not forwarded on the control-plane path yet. Clear the control-plane key or use a text-only turn.",
+            code: "control_plane_no_vision",
+          },
+          { status: 400 },
+        );
+      }
+      const cpMessages: ControlPlaneChatMessage[] = [];
+      if (effectiveSystemPrompt) {
+        cpMessages.push({ role: "system", content: effectiveSystemPrompt });
+      }
+      for (const t of priorTurns) {
+        cpMessages.push({ role: "user", content: t.user_input });
+        cpMessages.push({ role: "assistant", content: t.output });
+      }
+      // userContent may be string or multimodal array; flatten to text for CP.
+      const userText =
+        typeof userContent === "string"
+          ? userContent
+          : body.user_input + (extraText.length ? `\n\n${extraText.join("\n\n")}` : "");
+      cpMessages.push({ role: "user", content: userText });
+      const cpResult = await controlPlaneChat(backend.cp, {
+        model: model.id,
+        messages: cpMessages,
+      });
+      result = {
+        choices: [{ message: { role: "assistant", content: cpResult.text } }],
+        usage: {
+          prompt_tokens: cpResult.usage.prompt_tokens,
+          completion_tokens: cpResult.usage.completion_tokens,
+        },
+      };
+      logId = cpResult.requestId;
+    } else if (!aiCtx) {
+      return json({ error: "AI gateway context missing" }, { status: 500 });
+    } else if (model.id === "@cf/llava-hf/llava-1.5-7b-hf") {
       // LLaVA 1.5 is image-to-text: input is { image: number[] (raw bytes),
       // prompt, max_tokens }, not the chat { messages } shape, and it's
       // single-shot (one image + one prompt; prior turns and system prompt are
@@ -438,6 +495,10 @@ export async function runChat(request: Request, env: Env, model: ModelEntry, bod
     }
   } catch (err) {
     const m = err instanceof Error ? err.message : String(err);
+    const status = (err as { status?: number })?.status;
+    if (status === 401 || status === 402 || status === 403 || status === 429) {
+      return json({ error: `AI call failed: ${m}`, code: (err as { code?: string })?.code }, { status });
+    }
     return json({ error: `AI call failed: ${m}` }, { status: 502 });
   }
 
@@ -1159,9 +1220,57 @@ export async function persistChat(env: Env, a: PersistArgs): Promise<{ id: numbe
 
 export async function runChatStream(request: Request, env: Env, model: ModelEntry, body: ChatRequest): Promise<Response> {
   const userEmail = await getUserEmail(request, env);
-  const ctxOrErr = await requireAiContext(env, userEmail, { requireCfToken: modelNeedsCfAigToken(model) });
-  if (ctxOrErr instanceof Response) return ctxOrErr;
-  const aiCtx = ctxOrErr;
+  const backendOrErr = await requireInferenceBackend(env, userEmail, {
+    requireCfToken: modelNeedsCfAigToken(model),
+  });
+  if (backendOrErr instanceof Response) return backendOrErr;
+  const backend = backendOrErr;
+  // Streaming over control plane: run non-stream CP chat then emit one SSE chunk
+  // (full SSE client on the proxy is a follow-up).
+  if (backend.kind === "control_plane") {
+    const nonStream = await runChat(request, env, model, body);
+    if (!nonStream.ok) return nonStream;
+    const payload = (await nonStream.json()) as {
+      output?: string;
+      id?: number;
+      conversation_id?: string;
+      turn_index?: number;
+      tokens_in?: number;
+      tokens_out?: number;
+      latency_ms?: number;
+    };
+    const text = payload.output || "";
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: "delta", text })}\n\n`),
+        );
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: "done",
+              id: payload.id,
+              conversation_id: payload.conversation_id,
+              turn_index: payload.turn_index,
+              tokens_in: payload.tokens_in,
+              tokens_out: payload.tokens_out,
+              latency_ms: payload.latency_ms,
+              output: text,
+            })}\n\n`,
+          ),
+        );
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    });
+  }
+  const aiCtx = backend.ctx;
   const inputs: InputAttachment[] = body.attachments ?? [];
 
   // v0.20.0: same project resolution as runChat. See resolveProjectForChat
@@ -1220,6 +1329,16 @@ export async function runChatStream(request: Request, env: Env, model: ModelEntr
       imageDataUrls.push(att.data!); // guaranteed by the parsed guard above (data may be hydrated from a key)
       persistedAtt.push({ type: "image", key, mime: parsed.mime, filename: att.filename });
     } else if (att.type === "audio") {
+      if (!aiCtx) {
+        return json(
+          {
+            error:
+              "Audio attachments need on-worker Whisper, which is unavailable when control-plane mode is on. Clear the control-plane key or remove the audio attachment.",
+            code: "control_plane_no_audio",
+          },
+          { status: 400 },
+        );
+      }
       const parsed = att.data ? parseDataUrl(att.data) : null;
       if (!parsed) return json({ error: "Invalid audio data URL" }, { status: 400 });
       try {

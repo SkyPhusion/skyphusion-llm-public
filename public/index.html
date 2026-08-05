@@ -288,6 +288,21 @@
           <input id="gateway-modal-clear-token" type="checkbox">
           <span>clear saved token</span>
         </label>
+        <hr class="modal-sep" />
+        <p class="modal-hint"><strong>Control plane (optional).</strong> When a <code>pcp_</code> client key is set, chat bills through <code>play-proxy</code> (metered commercial plane) instead of your personal AI Gateway. History/RAG stay on this worker.</p>
+        <label class="modal-field">
+          <span>control plane URL</span>
+          <input id="gateway-modal-cp-url" type="url" autocomplete="off" placeholder="https://play-proxy.skyphusion.org">
+        </label>
+        <label class="modal-field">
+          <span>control plane client key</span>
+          <input id="gateway-modal-cp-key" type="password" autocomplete="new-password" placeholder="pcp_… leave blank to keep">
+          <span id="gateway-modal-cp-key-hint" class="modal-hint"></span>
+        </label>
+        <label class="modal-field modal-check">
+          <input id="gateway-modal-clear-cp-key" type="checkbox">
+          <span>clear control plane key (use AI Gateway only)</span>
+        </label>
         <div id="gateway-modal-error" class="modal-error" hidden></div>
       </div>
       <footer class="modal-actions">

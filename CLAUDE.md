@@ -20,9 +20,11 @@ exception: optional `OPENAI_API_KEY` for transparent `openai/gpt-image-*` PNG on
 providers stay on Unified Billing. Opt-in web search retrieves from self-hosted SearXNG
 (`SEARXNG_URL`) plus keyless Wikipedia.
 
-Sibling skeleton kits (clients / commercial plane): `prism-android`, `prism-ios`,
-`prism-control-plane` (honest skeleton status in each README). Current Worker version is root
-`package.json` (trust the pin + tags; do not freeze a version string in this file forever).
+Sibling kits: `prism-android`, `prism-ios`, `prism-control-plane` (metered proxy at
+`play-proxy.skyphusion.org`). **Control-plane mode (optional):** user prefs may store a `pcp_`
+client key + control-plane URL; when set, **chat** goes through the proxy (history/RAG stay here).
+See `src/control-plane.ts` + Account > AI Gateway modal. Current Worker version is root
+`package.json`.
 
 ## Commands
 
