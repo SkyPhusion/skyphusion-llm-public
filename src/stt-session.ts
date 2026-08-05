@@ -7,7 +7,7 @@
 //   - opens the upstream flux socket (env.AI.run({websocket:true})) and bridges
 //     audio up / Deepgram events down,
 //   - accumulates each committed turn into DO SQLite (hibernation-safe; the
-//     in-memory upstream socket is NOT — outbound sockets do not hibernate, so
+//     in-memory upstream socket is NOT -- outbound sockets do not hibernate, so
 //     we lean on the fact that an active STT session streams audio continuously
 //     and never goes idle long enough to hibernate, with a guard if it does),
 //   - on close, concatenates the turns and writes one chats row (model_type

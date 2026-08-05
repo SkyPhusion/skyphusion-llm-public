@@ -50,7 +50,7 @@ OpenAI Responses API path (`api: "responses"`):
   is the only deployer BYOK carve-out.
 
 Deferred (later): `hh1.1-r2v`, Aleph-2, new TTS providers, multimodal caps on K3,
-deploy smokes for Sprints 1–4.
+deploy smokes for Sprints 1-4.
 
 
 ---

@@ -113,7 +113,10 @@ Also: `[observability] enabled = true` (dashboard log tailing). `compatibility_d
 | `SEARXNG_URL` | Optional | v0.166.0; base URL of a self-hosted SearXNG instance for opt-in web search (our deploy: `https://search.skyphusion.org`). May be a `[vars]` entry or a secret. Silently skipped when unset; Wikipedia still runs keyless. |
 | `SEARXNG_ACCESS_CLIENT_ID` / `SEARXNG_ACCESS_CLIENT_SECRET` | Optional | v0.166.0; Cloudflare Access service-token halves for a gated SearXNG instance. Sent as `CF-Access-Client-Id` / `CF-Access-Client-Secret` only when both are set (leave unset for an un-gated instance). |
 
-## Routes reference
+## Routes
+
+Public auth (AUTH_MODE=public): `POST /api/auth/signup`, `/api/auth/login`, `/api/auth/logout`, `DELETE /api/account`.
+ reference
 
 All matched in the single `fetch` handler in `src/index.ts` (see the one-line pointer at the top of that file). Anything not matched falls through to `ASSETS` (static `public/`). In public mode, authenticated `/api/*` routes require a session (except boot probes like `GET /api/models` and `/api/auth/*`); identity is the account id. In access mode, identity is `Cf-Access-Authenticated-User-Email`.
 

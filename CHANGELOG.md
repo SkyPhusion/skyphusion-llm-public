@@ -1521,11 +1521,11 @@ The reverse bridge wrote per-scene keyframes into the bundle at
 pass overwriting them first. Verified against the pod (vivijure-src/core.py): only the
 `finalize` / i2v_only action reuses an on-disk keyframe; the normal + keyframes-only
 passes regenerate it. So this adds a control-plane path that submits the pod's
-**finalize/i2v_only action directly against a fresh bundle** — the pod skips SDXL gen
+**finalize/i2v_only action directly against a fresh bundle** -- the pod skips SDXL gen
 and animates the injected `clips/<id>_keyframe.png`, with no pod change.
 
 - **`POST /api/storyboard/render-from-keyframes`** `{ project, bundleKey, qualityTier?,
-  renderOverrides?, audioKey? }` — submits `buildFinalizePayload` (action `finalize`)
+  renderOverrides?, audioKey? }` -- submits `buildFinalizePayload` (action `finalize`)
   against the given bundle (no prior render row needed, so no keyframe-gen pass to
   overwrite the injected frames). Persists a history row; poll via the existing
   `GET /api/storyboard/render/<jobId>`.
@@ -3942,7 +3942,7 @@ Smokes v22 through v26 on the regional render path confirmed that the IP-Adapter
 - `src/containers/rembg.ts`: `RembgContainer` Durable Object wrapper extending `Container` from `@cloudflare/containers`; `defaultPort = 8080`, `sleepAfter = "5m"`. `cleanPortrait(env, bytes)` helper hides the DO stub plumbing from the handlers and throws on non-2xx.
 - `wrangler.example.toml`: new `[[durable_objects.bindings]]` for `REMBG_CONTAINER`, `[[containers]]` block pointing at the Dockerfile, and `[[migrations]]` block registering the DO class.
 - `src/env.ts`: `REMBG_CONTAINER: DurableObjectNamespace` binding.
-- `src/index.ts`: `RembgContainer` re-exported from the worker entry (Cloudflare runtime needs the class importable from the entry to bind it). `handleCastPortraitUpload` both branches (binary upload + JSON `{from_chat_artifact}`) pipe bytes through `cleanPortrait` before the R2 write; cleaned output is always PNG so the portrait_key carries `.png` regardless of source format. `handleCastSourceAdd` is intentionally not wired — sources are FLUX 2 multi-reference inputs for the cast portrait + training-set generators (v0.90.0 / v0.91.0), never fed to the regional render path's IP-Adapter.
+- `src/index.ts`: `RembgContainer` re-exported from the worker entry (Cloudflare runtime needs the class importable from the entry to bind it). `handleCastPortraitUpload` both branches (binary upload + JSON `{from_chat_artifact}`) pipe bytes through `cleanPortrait` before the R2 write; cleaned output is always PNG so the portrait_key carries `.png` regardless of source format. `handleCastSourceAdd` is intentionally not wired -- sources are FLUX 2 multi-reference inputs for the cast portrait + training-set generators (v0.90.0 / v0.91.0), never fed to the regional render path's IP-Adapter.
 - `package.json`: 0.96.0 to 0.97.0; `@cloudflare/containers` dependency added.
 
 ### Note
@@ -4064,10 +4064,10 @@ Phase 13 (the last major config pull). Wire types + normalizers for the prompt-t
 
 ### What's new
 
-- **`PromptTemplatesOverrides`** interface — 12 fields covering the prompt-engine and hand-fix constants:
+- **`PromptTemplatesOverrides`** interface -- 12 fields covering the prompt-engine and hand-fix constants:
   - Scalar strings (10): `anatomy_positive_base`, `anatomy_positive_human`, `anatomy_positive_anime`, `anatomy_negative_global`, `anatomy_negative_focused`, `anatomy_negative_portrait`, `anatomy_negative_anime`, `portrait_positive`, `hand_positive`, `hand_negative`. Each capped at 1024 chars to prevent runaway overrides bloating prompts past SDXL's CLIP-77 limit.
-  - `framing_hints?: string[]` — up to 32 entries, each ≤128 chars. Replaces the pod's pinned 10-entry cycle.
-  - `act_mood?: Record<string, string>` — keyed by act name, values ≤256 chars. Merges over the pod-side defaults.
+  - `framing_hints?: string[]` -- up to 32 entries, each ≤128 chars. Replaces the pod's pinned 10-entry cycle.
+  - `act_mood?: Record<string, string>` -- keyed by act name, values ≤256 chars. Merges over the pod-side defaults.
 - **`AdetailerOverrides`** extended: `face_confidence` (0..1) and `extra_steps` (0..16). Closes the gaps the comprehensive code audit identified.
 - **`WanDiffusionOverrides`** extended: `wan_negative_prompt` (≤1024 chars). Replaces the pod-pinned `WAN_DEFAULT_NEGATIVE` per render; the pod was already reading `wan_negative_prompt` off the config block but the key wasn't in the override schema, so it was unreachable from the payload.
 
@@ -4091,15 +4091,15 @@ Phase R regional knobs land in the planner UI with v15-confirmed defaults pre-fi
 
 Three fields added to the "multi-character composite (advanced)" disclosure:
 
-- **engine** select — `regional` (default, single-pass with per-region IP-Adapter masks) or `composite_legacy` (the pre-Phase-R panel + grabcut + tile escape hatch)
-- **regional LoRA scale per slot** — pre-filled at `0.3` (v15 win)
-- **regional IP-Adapter scale per slot** — pre-filled at `0.7` (v15 win)
+- **engine** select -- `regional` (default, single-pass with per-region IP-Adapter masks) or `composite_legacy` (the pre-Phase-R panel + grabcut + tile escape hatch)
+- **regional LoRA scale per slot** -- pre-filled at `0.3` (v15 win)
+- **regional IP-Adapter scale per slot** -- pre-filled at `0.7` (v15 win)
 
 These are **values, not placeholders**. The field carries the value to the wire payload unless the user explicitly clears it. The default behavior shifts from "send nothing, let the pod use its compiled default" to "send v15's known-good values, override per render if desired". The docker image stays immutable; the production defaults are right here in the Worker.
 
 ### Why pre-fill instead of placeholder
 
-The pod's compiled default for `lora_scale_per_slot` is still 0.55 (the original config-file value). v15 smoke confirmed 0.3 is the production-quality value for multi-character keyframes. If we want "0.3 in production" without rebuilding the pod, the Worker has to fill it. The user can clear the field to fall back to the pod default for that key — same as every other override.
+The pod's compiled default for `lora_scale_per_slot` is still 0.55 (the original config-file value). v15 smoke confirmed 0.3 is the production-quality value for multi-character keyframes. If we want "0.3 in production" without rebuilding the pod, the Worker has to fill it. The user can clear the field to fall back to the pod default for that key -- same as every other override.
 
 ### Tests
 
@@ -4184,7 +4184,7 @@ Phase 10 of the worker-pod config pull. Two more config.yaml regions become rout
 
 ## v0.76.0
 
-Phase 9 of the worker-pod config pull. The `local_diffusion.*` block (12 keys; SDXL base + keyframe-SDXL knobs) and the `generation.*` block (3 keys; seed handling) become routable from the web Worker. Pod side landed in vivijure-serverless 0.4.32, which also fixes the v0.4.31 parse-block gap (the `adetailer_overrides` + `wan_diffusion_overrides` kwargs were referencing variables that were never parsed off the input — a NameError at runtime any time those overrides reached the handler).
+Phase 9 of the worker-pod config pull. The `local_diffusion.*` block (12 keys; SDXL base + keyframe-SDXL knobs) and the `generation.*` block (3 keys; seed handling) become routable from the web Worker. Pod side landed in vivijure-serverless 0.4.32, which also fixes the v0.4.31 parse-block gap (the `adetailer_overrides` + `wan_diffusion_overrides` kwargs were referencing variables that were never parsed off the input -- a NameError at runtime any time those overrides reached the handler).
 
 ### Backend
 
@@ -4535,11 +4535,11 @@ Needs **vivijure-serverless 0.4.13** on the RunPod endpoint (the new `train_lora
 
 ### Schema
 
-- `cast_members.lora_key TEXT NULL` — R2 key of the trained `.safetensors`. Convention: `loras/cast-<id>/<timestamp>.safetensors`.
-- `cast_members.lora_status TEXT NOT NULL DEFAULT 'idle'` — one of `idle | training | ready | failed`.
-- `cast_members.lora_job_id TEXT NULL` — RunPod job id while training is in flight.
-- `cast_members.lora_error TEXT NULL` — capped error string on failed runs.
-- `cast_members.lora_trained_at TEXT NULL` — ISO timestamp when the row flipped to `ready`.
+- `cast_members.lora_key TEXT NULL` -- R2 key of the trained `.safetensors`. Convention: `loras/cast-<id>/<timestamp>.safetensors`.
+- `cast_members.lora_status TEXT NOT NULL DEFAULT 'idle'` -- one of `idle | training | ready | failed`.
+- `cast_members.lora_job_id TEXT NULL` -- RunPod job id while training is in flight.
+- `cast_members.lora_error TEXT NULL` -- capped error string on failed runs.
+- `cast_members.lora_trained_at TEXT NULL` -- ISO timestamp when the row flipped to `ready`.
 - Migration delta at `migrations/v0.57.0-cast-lora.sql`.
 
 ### Backend
@@ -4558,8 +4558,8 @@ Needs **vivijure-serverless 0.4.13** on the RunPod endpoint (the new `train_lora
 
 7 new vitest tests in `tests/cast-db.test.ts`:
 
-- `buildLoraTrainingBundleArgs` — storyboard shape, characterRefs mapping, bible fallback to name, portrait omission, slug fallback
-- `deriveLoraDestKey` — namespace + version format
+- `buildLoraTrainingBundleArgs` -- storyboard shape, characterRefs mapping, bible fallback to name, portrait omission, slug fallback
+- `deriveLoraDestKey` -- namespace + version format
 
 450/450 passing, type-check clean, cast.js syntax-checks.
 
@@ -4587,7 +4587,7 @@ Auto-preflight on edit. The v0.54.0 preflight panel runs on a successful plan + 
 - Every scene-editor edit (prompt, target_seconds, act, character_slots, delete) via `onSceneChanged`
 - Scene snap-to-beats (`snapAllScenes`)
 - Refinement chat success (a refine rewrites the storyboard)
-- Cast binding changes (`bindSlotToCast` / `unbindSlot` — a binding affects the cast readiness check)
+- Cast binding changes (`bindSlotToCast` / `unbindSlot` -- a binding affects the cast readiness check)
 - Audio bed set / clear / MiniMax completion (audio key affects the audio HEAD warning)
 
 ### Debounce + in-flight rerun queue
@@ -4604,7 +4604,7 @@ Pure frontend. Deploy is just `npm run deploy`; no D1 migration.
 
 ### Tests
 
-No new vitest tests — the debounce + rerun logic is DOM-glue + setTimeout, which the existing Node-only test pool doesn't model. The existing 444 tests still pass; manual smoke covered.
+No new vitest tests -- the debounce + rerun logic is DOM-glue + setTimeout, which the existing Node-only test pool doesn't model. The existing 444 tests still pass; manual smoke covered.
 
 ### What is NOT in this PR
 
@@ -4617,7 +4617,7 @@ Pin render history rows to storyboard projects. Adds an optional `project_id` co
 
 ### Schema
 
-- `renders.project_id INTEGER NULL` — added via `ALTER TABLE`. Backfill is intentionally NOT done; pre-v0.55 rows stay NULL and surface in the unfiltered list (the pre-v0.55 default). New rows pick up the active project when one is set at submit time.
+- `renders.project_id INTEGER NULL` -- added via `ALTER TABLE`. Backfill is intentionally NOT done; pre-v0.55 rows stay NULL and surface in the unfiltered list (the pre-v0.55 default). New rows pick up the active project when one is set at submit time.
 - New partial index `renders_by_user_project ON (user_email, project_id, submitted_at DESC) WHERE project_id IS NOT NULL`. Serves the project-filtered list query directly without scanning unrelated rows.
 - Migration delta at `migrations/v0.55.0-renders-project-id.sql`.
 
@@ -4626,7 +4626,7 @@ Pin render history rows to storyboard projects. Adds an optional `project_id` co
 - `src/renders-db.ts`: `NewRenderRow.projectId?`, `RenderRow.project_id`, normalizer parses the int back. `listRendersForUser` grows an optional `projectId` param; when set, the WHERE clause adds `AND project_id = ?` and the SELECT statement uses the new partial index. Pure helper `normalizeProjectIdInput(raw)` covers the "accept positive integer or numeric string, else null" contract.
 - `src/index.ts`:
   - `RenderSubmitRequest.projectId?: unknown` validated as positive integer; the route looks the project up via `getProjectById` (404 on miss-or-not-owned) and passes the id into `insertRender`.
-  - `handleFinalizeSubmit` reads `row.project_id` off the parent preview and propagates it on the new child row — finalize chains stay grouped.
+  - `handleFinalizeSubmit` reads `row.project_id` off the parent preview and propagates it on the new child row -- finalize chains stay grouped.
   - `handleRendersList` reads `?project_id=N` query param via `normalizeProjectIdInput` and threads it to the DB helper.
 
 ### Frontend
@@ -4688,9 +4688,9 @@ The v0.53.0 prefs covered model id, brief, BPM, beats-per-shot. v0.54.0 adds the
 
 20 new vitest tests:
 
-- `checkStoryboardShape` — empty prompt, very short prompt, slot mismatch, target_seconds <= 0, target_seconds < 1.5, target_seconds > 12, clean-pass, empty scenes
-- `checkCastBindingsReady` — happy path, no portrait, no refs, sparse refs, deleted binding, null bindings
-- `summarize` — ok-true on warnings only, ok-false on any error, empty list
+- `checkStoryboardShape` -- empty prompt, very short prompt, slot mismatch, target_seconds <= 0, target_seconds < 1.5, target_seconds > 12, clean-pass, empty scenes
+- `checkCastBindingsReady` -- happy path, no portrait, no refs, sparse refs, deleted binding, null bindings
+- `summarize` -- ok-true on warnings only, ok-false on any error, empty list
 
 439/439 passing, type-check clean, planner.js syntax-checks.
 
@@ -4713,13 +4713,13 @@ Two legacy gaps closed in one PR: NLE markers export (one marker per scene, down
 - `src/markers.ts` (new, pure): `formatTimecode`, `buildMarkers`, `emitPremiereCsv`, `emitResolveCsv`, and `emitMarkers` (returns body + contentType + filename). Cumulative `in/out` times across scenes (uses `target_seconds`, falls back to `clip_seconds`, default 5s). Premiere CSV is tab-separated with a Comment marker type column; Resolve CSV is comma-separated with an act-driven Color column (opening=Blue, rising=Green, turn=Yellow, climax=Red, resolution=Cyan).
 - `src/storyboard-projects-db.ts` (new): D1 helpers mirroring `src/cast-db.ts`. `listProjectsForUser`, `getProjectById`, `createProject`, `updateProjectMeta`, `setLastStoryboard`, `deleteProject`, plus `slugifyProject` + `allocateProjectSlug` for per-user slug uniqueness.
 - `src/index.ts`: new routes
-  - `POST /api/storyboard/markers` — runs `validateStoryboard` then `emitMarkers`; returns the file body with `Content-Disposition: attachment; filename=<title>-<format>-markers.csv`. Pure compute; no D1 or R2.
-  - `GET /api/storyboard/projects` — list user's projects
-  - `POST /api/storyboard/projects` — create with `{name, prefs?}`
-  - `GET /api/storyboard/projects/:id` — get one
-  - `PATCH /api/storyboard/projects/:id` — update `name` and/or `prefs`
-  - `POST /api/storyboard/projects/:id/storyboard` — save a snapshot of the current storyboard as the project's `last_storyboard`
-  - `DELETE /api/storyboard/projects/:id` — remove (returns the deleted row)
+  - `POST /api/storyboard/markers` -- runs `validateStoryboard` then `emitMarkers`; returns the file body with `Content-Disposition: attachment; filename=<title>-<format>-markers.csv`. Pure compute; no D1 or R2.
+  - `GET /api/storyboard/projects` -- list user's projects
+  - `POST /api/storyboard/projects` -- create with `{name, prefs?}`
+  - `GET /api/storyboard/projects/:id` -- get one
+  - `PATCH /api/storyboard/projects/:id` -- update `name` and/or `prefs`
+  - `POST /api/storyboard/projects/:id/storyboard` -- save a snapshot of the current storyboard as the project's `last_storyboard`
+  - `DELETE /api/storyboard/projects/:id` -- remove (returns the deleted row)
 
 ### Schema
 
@@ -4734,11 +4734,11 @@ Two legacy gaps closed in one PR: NLE markers export (one marker per scene, down
 
 15 new vitest tests:
 
-- `formatTimecode` — zero, fractional frames, minute/hour rollover, non-24 fps, invalid inputs
-- `buildMarkers` — cumulative time, act-prefix in description, synthesized scene names, empty input
-- `emitPremiereCsv` / `emitResolveCsv` — header shape, marker type, act-color mapping
-- `emitMarkers` — content-type + filename for both formats
-- `slugifyProject` — basic + empty fallback
+- `formatTimecode` -- zero, fractional frames, minute/hour rollover, non-24 fps, invalid inputs
+- `buildMarkers` -- cumulative time, act-prefix in description, synthesized scene names, empty input
+- `emitPremiereCsv` / `emitResolveCsv` -- header shape, marker type, act-color mapping
+- `emitMarkers` -- content-type + filename for both formats
+- `slugifyProject` -- basic + empty fallback
 
 422/422 passing, type-check clean, planner.js syntax-checks.
 
@@ -4818,7 +4818,7 @@ Below the source blocks: BPM number input (default 120, range 20-300) + beats-pe
 
 ### What is NOT in this PR
 
-- Server-side mux (combining generated audio with the GPU's silent_full.mp4 — needs a vivijure-serverless 0.4.11 step or a worker-side WASM ffmpeg). The audio key is staged in R2 ready for that pipeline.
+- Server-side mux (combining generated audio with the GPU's silent_full.mp4 -- needs a vivijure-serverless 0.4.11 step or a worker-side WASM ffmpeg). The audio key is staged in R2 ready for that pipeline.
 - Real beat detection from an uploaded waveform (current snap uses user-supplied BPM; auto-detect would need an audio-analysis library).
 - Per-scene per-beat override (current snap is uniform; advanced editors can already type a custom target_seconds in the v0.49.0 scene editor).
 
@@ -5620,7 +5620,7 @@ Once a user accumulates a dozen renders the list gets unwieldy. Manual D1 surger
 
 ### Endpoint
 
-**`DELETE /api/storyboard/renders/<id>`** — `id` is the D1 autoincrement PK (the `id` column on the `renders` table, NOT the RunPod `job_id`). 400 on a malformed id (`/api/storyboard/renders/abc` returns "invalid id"); 404 on a not-found-or-not-owned row; 200 on success with `{ ok: true, id, artifactDeleted, artifactSkippedReason, user }`. `artifactSkippedReason` carries a human-readable explanation when `?artifact=true` was set but the R2 delete did not happen (no `output_key`, shared by N other rows, or the R2 call itself failed). A row that vanished between resolve and delete (race condition) is treated as success with a `note: "row was already gone"` because the end state matches the request.
+**`DELETE /api/storyboard/renders/<id>`** -- `id` is the D1 autoincrement PK (the `id` column on the `renders` table, NOT the RunPod `job_id`). 400 on a malformed id (`/api/storyboard/renders/abc` returns "invalid id"); 404 on a not-found-or-not-owned row; 200 on success with `{ ok: true, id, artifactDeleted, artifactSkippedReason, user }`. `artifactSkippedReason` carries a human-readable explanation when `?artifact=true` was set but the R2 delete did not happen (no `output_key`, shared by N other rows, or the R2 call itself failed). A row that vanished between resolve and delete (race condition) is treated as success with a `note: "row was already gone"` because the end state matches the request.
 
 ### URL naming
 
@@ -5739,7 +5739,7 @@ The fallback pattern is important: stream first, poll only on failure. That keep
 
 ### Endpoint
 
-- **`GET /api/storyboard/render/<jobId>/stream`** — `text/event-stream` response. Each event's `data:` field is a JSON payload with the same shape as `GET /api/storyboard/render/<jobId>` (`{ok, jobId, status, statusRaw, output, error, executionTimeMs, delayTimeMs, user}` on success; `{ok: false, errors, user}` on RunPod failure). Two sentinel events bookend the stream: `STREAM_OPENED` (immediately on connect, so the client knows the stream is live even before the first RunPod round-trip) and `STREAM_DURATION_CAP` (when the 25-minute cap is reached; EventSource auto-reconnects to a fresh stream). On terminal RunPod status the worker closes cleanly; EventSource on the client sees `readyState === CLOSED` and stops reconnecting.
+- **`GET /api/storyboard/render/<jobId>/stream`** -- `text/event-stream` response. Each event's `data:` field is a JSON payload with the same shape as `GET /api/storyboard/render/<jobId>` (`{ok, jobId, status, statusRaw, output, error, executionTimeMs, delayTimeMs, user}` on success; `{ok: false, errors, user}` on RunPod failure). Two sentinel events bookend the stream: `STREAM_OPENED` (immediately on connect, so the client knows the stream is live even before the first RunPod round-trip) and `STREAM_DURATION_CAP` (when the 25-minute cap is reached; EventSource auto-reconnects to a fresh stream). On terminal RunPod status the worker closes cleanly; EventSource on the client sees `readyState === CLOSED` and stops reconnecting.
 
 ### Worker implementation
 
@@ -5852,10 +5852,10 @@ CREATE INDEX IF NOT EXISTS renders_by_user_status
 
 ### Endpoints
 
-- **`POST /api/storyboard/render`** (existing) — now also persists a new row on success. DB failure does NOT fail the response; the job is already submitted to RunPod and the history miss is a strictly less-bad outcome than a 500 that the user reads as "submit failed".
-- **`GET /api/storyboard/render/<jobId>`** (existing) — now also `UPDATE`s the row with each fresh status snapshot. The UPDATE is a no-op when no row exists, so polling jobs submitted before v0.34.0 still works (back-compat).
-- **`DELETE /api/storyboard/render/<jobId>`** (existing) — same UPDATE pattern as poll.
-- **`GET /api/storyboard/renders`** (new) — returns `{ renders: RenderRow[], user }`. Optional `?limit=N` query parameter, clamped to `[1, 200]`, default 50. Rows are sorted by `submitted_at DESC`. `render_overrides` and `output` are parsed back from their JSON-encoded TEXT columns into JS objects (or `null` if the stored string was malformed or empty).
+- **`POST /api/storyboard/render`** (existing) -- now also persists a new row on success. DB failure does NOT fail the response; the job is already submitted to RunPod and the history miss is a strictly less-bad outcome than a 500 that the user reads as "submit failed".
+- **`GET /api/storyboard/render/<jobId>`** (existing) -- now also `UPDATE`s the row with each fresh status snapshot. The UPDATE is a no-op when no row exists, so polling jobs submitted before v0.34.0 still works (back-compat).
+- **`DELETE /api/storyboard/render/<jobId>`** (existing) -- same UPDATE pattern as poll.
+- **`GET /api/storyboard/renders`** (new) -- returns `{ renders: RenderRow[], user }`. Optional `?limit=N` query parameter, clamped to `[1, 200]`, default 50. Rows are sorted by `submitted_at DESC`. `render_overrides` and `output` are parsed back from their JSON-encoded TEXT columns into JS objects (or `null` if the stored string was malformed or empty).
 
 ### Ownership
 
@@ -5883,7 +5883,7 @@ The chat UI cross-link is the one-line discoverability fix I noted as deferred i
 
 ### Endpoint
 
-- **`DELETE /api/storyboard/render/<jobId>`** — proxies to RunPod's cancel. Same 400/502/503 semantics as the rest of the storyboard routes: 400 for malformed `jobId`, 502 if RunPod rejects the cancel (e.g. the job is already terminal), 503 if `RUNPOD_API_KEY` / `RUNPOD_ENDPOINT_ID` are not configured. On success, returns the normalized RunpodJobView (`{ok: true, jobId, status, statusRaw, user}`) reflecting whatever state RunPod reported, which will usually be `CANCELLED` but can be a different terminal state if the worker finished between the poll loop's last snapshot and the cancel request.
+- **`DELETE /api/storyboard/render/<jobId>`** -- proxies to RunPod's cancel. Same 400/502/503 semantics as the rest of the storyboard routes: 400 for malformed `jobId`, 502 if RunPod rejects the cancel (e.g. the job is already terminal), 503 if `RUNPOD_API_KEY` / `RUNPOD_ENDPOINT_ID` are not configured. On success, returns the normalized RunpodJobView (`{ok: true, jobId, status, statusRaw, user}`) reflecting whatever state RunPod reported, which will usually be `CANCELLED` but can be a different terminal state if the worker finished between the poll loop's last snapshot and the cancel request.
 
 ### UI behavior
 
@@ -5953,16 +5953,16 @@ Persistence is deliberately omitted in this pass. The UI holds the jobId (in mem
 
 ### Endpoints
 
-- **`POST /api/storyboard/render`** — body `{ bundleKey, qualityTier?, renderOverrides?, project? }`. `bundleKey` is required. `qualityTier` is `"draft" | "standard" | "final"`, default `"final"`. `renderOverrides` is an opaque object passed through to rp_handler.py for per-shot tuning (Wan step count, seed, etc.). `project` defaults to the slug derived from `bundleKey` (stripping the `bundles/` prefix and `.tar.gz` suffix) so the bundle assembler and the render submit form one consistent project namespace; pass it explicitly only if the bundle was staged under a custom key. Returns `{ ok: true, jobId, status, statusRaw, user }` on success.
+- **`POST /api/storyboard/render`** -- body `{ bundleKey, qualityTier?, renderOverrides?, project? }`. `bundleKey` is required. `qualityTier` is `"draft" | "standard" | "final"`, default `"final"`. `renderOverrides` is an opaque object passed through to rp_handler.py for per-shot tuning (Wan step count, seed, etc.). `project` defaults to the slug derived from `bundleKey` (stripping the `bundles/` prefix and `.tar.gz` suffix) so the bundle assembler and the render submit form one consistent project namespace; pass it explicitly only if the bundle was staged under a custom key. Returns `{ ok: true, jobId, status, statusRaw, user }` on success.
 
-- **`GET /api/storyboard/render/<jobId>`** — proxies RunPod's `/v2/<endpointId>/status/<jobId>`. Returns `{ ok: true, jobId, status, statusRaw, output?, error?, executionTimeMs?, delayTimeMs?, user }`. Status enum is the RunPod platform's literal strings: `IN_QUEUE | IN_PROGRESS | COMPLETED | FAILED | CANCELLED | TIMED_OUT`. Unknown status strings (in case RunPod adds new states) collapse to `IN_PROGRESS` for the typed `status` field but pass through verbatim as `statusRaw` so the UI can see what RunPod actually returned.
+- **`GET /api/storyboard/render/<jobId>`** -- proxies RunPod's `/v2/<endpointId>/status/<jobId>`. Returns `{ ok: true, jobId, status, statusRaw, output?, error?, executionTimeMs?, delayTimeMs?, user }`. Status enum is the RunPod platform's literal strings: `IN_QUEUE | IN_PROGRESS | COMPLETED | FAILED | CANCELLED | TIMED_OUT`. Unknown status strings (in case RunPod adds new states) collapse to `IN_PROGRESS` for the typed `status` field but pass through verbatim as `statusRaw` so the UI can see what RunPod actually returned.
 
 ### Response semantics (mirrors the /api/storyboard/plan matrix)
 
-- **200 + `{ok: true, ...}`** — Job accepted (submit) or status fetched (poll).
-- **400 + `{error}`** — Malformed request body, missing `bundleKey`, invalid `qualityTier`, or malformed `jobId` on poll. `jobId` is validated against `^[A-Za-z0-9_-]{1,128}$` at the route boundary so a malformed id never reaches RunPod as a path-traversal attempt.
-- **502 + `{ok: false, errors, ...}`** — RunPod's API rejected the call (auth, rate limit, endpoint id wrong) or the network request failed. Distinct from a *job-level* failure (which arrives via poll as `status: "FAILED"` with HTTP 200).
-- **503 + `{error}`** — `RUNPOD_API_KEY` or `RUNPOD_ENDPOINT_ID` is not configured on the worker. Error message names the secrets and the `wrangler secret put` commands.
+- **200 + `{ok: true, ...}`** -- Job accepted (submit) or status fetched (poll).
+- **400 + `{error}`** -- Malformed request body, missing `bundleKey`, invalid `qualityTier`, or malformed `jobId` on poll. `jobId` is validated against `^[A-Za-z0-9_-]{1,128}$` at the route boundary so a malformed id never reaches RunPod as a path-traversal attempt.
+- **502 + `{ok: false, errors, ...}`** -- RunPod's API rejected the call (auth, rate limit, endpoint id wrong) or the network request failed. Distinct from a *job-level* failure (which arrives via poll as `status: "FAILED"` with HTTP 200).
+- **503 + `{error}`** -- `RUNPOD_API_KEY` or `RUNPOD_ENDPOINT_ID` is not configured on the worker. Error message names the secrets and the `wrangler secret put` commands.
 
 ### Code
 
@@ -6003,8 +6003,8 @@ start_image.png                            (optional top-level film start; auto-
 
 ### Endpoints
 
-- **`POST /api/storyboard/character-ref`** — body is raw binary (PNG/JPEG/WEBP per Content-Type), max 16 MB. Returns `{ key, mime, size, user }`. Stages to R2 at `in/<uuid>.<ext>` via the existing `r2Put` helper so the staged object is visible to the same artifact-cleanup paths that already exist. 400 on wrong / missing MIME, 400 on empty body, 413 on > 16 MB.
-- **`POST /api/storyboard/bundle`** — body is `{ storyboard, characterRefs, startImage? }`. `characterRefs` is a sparse `{ "A": CharacterRef, "B": ..., ... }` keyed by slot id. Each `CharacterRef` has `{ name, prompt, trainingImages: TrainingImage[], portrait?: TrainingImage }`. Each `TrainingImage` is `{ key }` (R2 reference) or `{ dataUrl }` (inline base64) plus an optional `filename` override. Returns `{ ok: true, bundleKey, sizeBytes, fileCount, user }` on success or `{ ok: false, errors, user }` (200) on input-resolution failures, 400 on malformed request body, 500 on assembler exceptions.
+- **`POST /api/storyboard/character-ref`** -- body is raw binary (PNG/JPEG/WEBP per Content-Type), max 16 MB. Returns `{ key, mime, size, user }`. Stages to R2 at `in/<uuid>.<ext>` via the existing `r2Put` helper so the staged object is visible to the same artifact-cleanup paths that already exist. 400 on wrong / missing MIME, 400 on empty body, 413 on > 16 MB.
+- **`POST /api/storyboard/bundle`** -- body is `{ storyboard, characterRefs, startImage? }`. `characterRefs` is a sparse `{ "A": CharacterRef, "B": ..., ... }` keyed by slot id. Each `CharacterRef` has `{ name, prompt, trainingImages: TrainingImage[], portrait?: TrainingImage }`. Each `TrainingImage` is `{ key }` (R2 reference) or `{ dataUrl }` (inline base64) plus an optional `filename` override. Returns `{ ok: true, bundleKey, sizeBytes, fileCount, user }` on success or `{ ok: false, errors, user }` (200) on input-resolution failures, 400 on malformed request body, 500 on assembler exceptions.
 
 ### What the assembler enforces
 
@@ -6075,10 +6075,10 @@ v0.28.0 added `planStoryboard` as a callable module but no Worker route invoked 
 
 The route distinguishes four cases by status code AND the `ok` field, so the UI can branch correctly:
 
-- **200 + `{ok: true, storyboard, yaml, provider, model, logId, user}`** — The model produced JSON that passed `validateStoryboard`. `storyboard` is the validated normalized form (with `style_category`/`style_preset` collapsed to `"None"` per the schema rule, `projectName` derived from `normalizeProjectName(title)`, etc.). `yaml` is the bundle-ready storyboard.yaml string produced by `serializeStoryboardYaml(storyboard)`, ready to drop into the R2 bundle the GPU worker pulls.
-- **200 + `{ok: false, errors, raw, provider, model, logId, user}`** — The model executed but its output did not parse as JSON or did not satisfy the schema. The UI shows the errors, optionally appends them to the next user message, and re-prompts. This is the normal "model did not follow the schema" path, not an HTTP error.
-- **400 + `{error, catalog?}`** — Malformed request body, missing required field, malformed character entry, or a `model` id not in the planning catalog. When the failure is an unknown model, the response includes the list of valid catalog ids so the picker can refresh.
-- **502 + `{ok: false, errors, raw, ...}`** — Upstream provider call failed (network, auth, rate limit, model rejection). Distinct from "model output bad" so the UI can show a "service error, retry" affordance rather than "model said no, try again". The dispatcher tags these errors with `provider call failed:` or `model execution failed:` prefixes.
+- **200 + `{ok: true, storyboard, yaml, provider, model, logId, user}`** -- The model produced JSON that passed `validateStoryboard`. `storyboard` is the validated normalized form (with `style_category`/`style_preset` collapsed to `"None"` per the schema rule, `projectName` derived from `normalizeProjectName(title)`, etc.). `yaml` is the bundle-ready storyboard.yaml string produced by `serializeStoryboardYaml(storyboard)`, ready to drop into the R2 bundle the GPU worker pulls.
+- **200 + `{ok: false, errors, raw, provider, model, logId, user}`** -- The model executed but its output did not parse as JSON or did not satisfy the schema. The UI shows the errors, optionally appends them to the next user message, and re-prompts. This is the normal "model did not follow the schema" path, not an HTTP error.
+- **400 + `{error, catalog?}`** -- Malformed request body, missing required field, malformed character entry, or a `model` id not in the planning catalog. When the failure is an unknown model, the response includes the list of valid catalog ids so the picker can refresh.
+- **502 + `{ok: false, errors, raw, ...}`** -- Upstream provider call failed (network, auth, rate limit, model rejection). Distinct from "model output bad" so the UI can show a "service error, retry" affordance rather than "model said no, try again". The dispatcher tags these errors with `provider call failed:` or `model execution failed:` prefixes.
 
 ### Auth and observability
 
@@ -6366,13 +6366,13 @@ Fix: actually allow image upload / drag-drop / paste on i2v models. Completes th
 
 ### What v0.21.9 missed
 
-v0.21.9 fixed the i2v affordance (showed the upload), the per-file handler (accepted the image), and the send gate (shipped it) — but all of that lives *after* an early guard at the top of `handleFiles`:
+v0.21.9 fixed the i2v affordance (showed the upload), the per-file handler (accepted the image), and the send gate (shipped it) -- but all of that lives *after* an early guard at the top of `handleFiles`:
 
 ```js
 if (m.type !== "chat" && m.type !== "stt" && !isFlux2) return;
 ```
 
-A video i2v model is none of those, so `handleFiles` returned immediately and the file was dropped before any of the v0.21.9 handling ran. Because the picker, drag-drop, and paste all funnel through `handleFiles`, all three were dead — matching the report of "can't attach OR drag/drop."
+A video i2v model is none of those, so `handleFiles` returned immediately and the file was dropped before any of the v0.21.9 handling ran. Because the picker, drag-drop, and paste all funnel through `handleFiles`, all three were dead -- matching the report of "can't attach OR drag/drop."
 
 ### The fix
 
