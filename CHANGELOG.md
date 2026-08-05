@@ -1,3 +1,8 @@
+## v0.175.5
+
+### Removed
+- LLaVA 1.5 (`@cf/llava-hf/llava-1.5-7b-hf`): retired; use modern vision chat models.
+
 ## v0.175.4
 
 fix(ui): boot banner treats control-plane pcp_ as configured
