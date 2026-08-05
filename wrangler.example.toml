@@ -126,6 +126,12 @@ enabled = true
 #     gateway fallback stays available. This is the default (back-compat).
 # [vars]
 # AUTH_MODE = "public"
+# Control plane (v0.175.0): optional metered chat via prism-control-plane.
+# Users store only a pcp_ key in prefs; origin is NOT user-set (SSRF).
+# Default allowlisted host is play-proxy.skyphusion.org. Do NOT add another
+# commented vars header (CI uncomments every "# [vars]" line and TOML breaks).
+# CONTROL_PLANE_URL = "https://play-proxy.skyphusion.org"
+# CONTROL_PLANE_ALLOW_LOCALHOST = "true"
 
 # Note: GATEWAY_ID is set as a worker secret rather than a var in this file
 # (v0.12.0+). This keeps deployer-specific values out of the committed template.
@@ -137,15 +143,6 @@ enabled = true
 # Public mode (v0.167.0+): omit GATEWAY_ID and CF_AIG_TOKEN on the worker.
 # Each visitor stores their own gateway slug + token via Account > AI Gateway
 # (/api/prefs in D1 user_prefs). No Cloudflare Access needed when AUTH_MODE=public.
-#
-# Control plane (v0.175.0): optional metered chat via prism-control-plane.
-# Users store only a pcp_ client key in prefs; the origin is NOT user-set (SSRF).
-# Default allowlisted host is play-proxy.skyphusion.org. Override only with an
-# allowlisted CONTROL_PLANE_URL var; set CONTROL_PLANE_ALLOW_LOCALHOST=true for
-# local wrangler against a local control-plane.
-# [vars]
-# CONTROL_PLANE_URL = "https://play-proxy.skyphusion.org"
-# CONTROL_PLANE_ALLOW_LOCALHOST = "true"
 #
 # Other worker secrets (also set via `npx wrangler secret put <NAME>`):
 #   OPENAI_API_KEY (optional sole BYOK carve-out, v0.174.0): when set,
