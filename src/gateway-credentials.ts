@@ -31,7 +31,7 @@ export interface GatewayStatus {
 }
 
 export const GATEWAY_NOT_CONFIGURED_MSG =
-  "AI Gateway not configured. Open Account > AI Gateway and enter your gateway slug plus a Cloudflare API token with AI Gateway Run permission. Unified Billing charges your Cloudflare account.";
+  "Inference not configured. Open Account > AI Gateway and either (1) enter your Cloudflare gateway slug + API token (BYOK), or (2) paste a prism-control-plane client key (pcp_…) to bill chat through play-proxy.";
 
 export const CF_AIG_TOKEN_REQUIRED_MSG =
   "This model requires a Cloudflare API token with AI Gateway Run permission. Add it under Account > AI Gateway.";

@@ -1299,6 +1299,11 @@ async function run() {
   runBtn.disabled = true;
   attachBtn.disabled = true;
 
+  // Clear the composer immediately on send (success and failure). Keeping the
+  // text on error forced users to manually delete it and looked like a hang.
+  userInput.value = "";
+  autoGrowUserInput();
+
   // Optimistic: append a user turn + a placeholder assistant turn to the
   // transcript immediately so the UI feels responsive. After the response
   // comes back we refetch the full conversation to get the canonical state.
@@ -1393,11 +1398,6 @@ async function run() {
     state.currentConversationId = result.conversation_id;
     state.pendingAttachments = [];
     renderAttachments();
-
-    // Clear the input so the next prompt can be typed immediately.
-    // The system prompt stays.
-    userInput.value = "";
-    autoGrowUserInput();
     userInput.focus();
 
     // Refetch the full conversation from the server for canonical state
@@ -1414,18 +1414,17 @@ async function run() {
     // Roll back optimistic turns; surface the error in a fresh assistant turn.
     state.currentTurns.pop();
     state.currentTurns.pop();
+    const msg = err.message || String(err);
     state.currentTurns.push(optimisticUserTurn, {
       model, model_type: m.type, output: "",
       status: "failed",
-      job_error: err.message,
+      job_error: msg,
     });
     renderTranscript(state.currentTurns);
-    // #80 fail-closed BYOK gate: a 412 means no AI Gateway is configured (or the
-    // Unified Billing token is missing). Route the user straight into the
-    // gateway modal so the fix is one screen away, not a dead-end error. The
-    // failed turn still shows the server message (which names Account > AI
-    // Gateway). Match on the status; the worker also sends a code field.
-    if (err.status === 412) {
+    userInput.focus();
+    // #80 fail-closed: 412 = no AI Gateway BYOK and no control-plane pcp_ key.
+    // Open the account modal so either path can be configured.
+    if (err.status === 412 || err.code === "gateway_not_configured" || err.code === "cf_aig_token_required") {
       openGatewayModal();
     }
   } finally {
