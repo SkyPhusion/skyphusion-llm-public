@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @skyphusion/create-prism (v0.168.0 release train; package v0.1.0)
+// @skyphusion/create-prism (package version tracks root prism release train)
 // Scaffold a new prism deployment: a multimodal AI playground on one Cloudflare
 // Worker. Single file, zero runtime dependencies, Node >= 20.
 //
@@ -20,7 +20,9 @@ import { basename, dirname, join, resolve } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = join(HERE, "template");
-const PKG_VERSION = "0.1.0";
+// Keep in lockstep with packages/create-prism/package.json (publish-npm requires
+// GitHub Release tag vX.Y.Z == this version). Read at runtime so they cannot drift.
+const PKG_VERSION = JSON.parse(readFileSync(join(HERE, "package.json"), "utf8")).version;
 
 const EXIT = {
   OK: 0,
