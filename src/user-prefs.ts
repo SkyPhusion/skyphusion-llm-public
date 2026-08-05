@@ -8,11 +8,9 @@ export interface UserPrefsJson {
   gateway_id?: string;
   cf_aig_token?: string;
   /**
-   * When set with control_plane_key, chat (and later other doors) bill through
-   * prism-control-plane instead of the user's AI Gateway BYOK.
+   * When set, chat bills through prism-control-plane (allowlisted origin from
+   * worker config, never a user-supplied URL -- SSRF). Client key `pcp_…`.
    */
-  control_plane_url?: string;
-  /** Client key `pcp_…` (never logged; masked on prefs GET). */
   control_plane_key?: string;
 }
 
@@ -54,11 +52,6 @@ export async function saveUserPrefs(
     const trimmed = patch.cf_aig_token.trim();
     if (trimmed) merged.cf_aig_token = trimmed;
     else delete merged.cf_aig_token;
-  }
-  if (patch.control_plane_url !== undefined) {
-    const trimmed = patch.control_plane_url.trim().replace(/\/+$/, "");
-    if (trimmed) merged.control_plane_url = trimmed;
-    else delete merged.control_plane_url;
   }
   if (patch.control_plane_key !== undefined) {
     const trimmed = patch.control_plane_key.trim();

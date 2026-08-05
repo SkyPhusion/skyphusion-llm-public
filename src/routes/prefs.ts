@@ -1,6 +1,7 @@
 // Per-user AI Gateway preference routes (GET/PATCH /api/prefs). Stores the
 // user gateway slug + Unified Billing token in D1 user_prefs; the token is
-// never echoed back raw (maskSecret).
+// never echoed back raw (maskSecret). Optional control_plane_key (pcp_) for
+// metered chat via allowlisted play-proxy (URL is never user-set).
 
 import type { Env } from "../env";
 import { loadUserPrefs, saveUserPrefs, type UserPrefsJson } from "../user-prefs";
@@ -12,11 +13,12 @@ import {
 } from "../control-plane";
 import { json, getUserEmail } from "./shared";
 
-function controlPlaneStatus(prefs: UserPrefsJson | null) {
-  const cp = resolveControlPlane(prefs);
+function controlPlaneStatus(prefs: UserPrefsJson | null, env: Env) {
+  const cp = resolveControlPlane(prefs, env);
   return {
     control_plane_configured: !!cp,
-    control_plane_url: prefs?.control_plane_url?.trim() || DEFAULT_CONTROL_PLANE_URL,
+    // Display-only origin (from worker config / default); not editable by the user.
+    control_plane_url: cp?.baseUrl ?? DEFAULT_CONTROL_PLANE_URL,
     control_plane_key_set: !!prefs?.control_plane_key?.trim(),
     control_plane_key_preview: maskSecret(prefs?.control_plane_key),
   };
@@ -30,9 +32,9 @@ export async function handlePrefsGet(request: Request, env: Env): Promise<Respon
     gateway_id: status.gateway_id,
     cf_aig_token_set: status.cf_aig_token_set,
     cf_aig_token_preview: maskSecret(prefs?.cf_aig_token),
-    configured: status.configured || !!resolveControlPlane(prefs),
+    configured: status.configured || !!resolveControlPlane(prefs, env),
     source: status.source,
-    ...controlPlaneStatus(prefs),
+    ...controlPlaneStatus(prefs, env),
   });
 }
 
@@ -42,7 +44,6 @@ export async function handlePrefsPatch(request: Request, env: Env): Promise<Resp
     gateway_id?: string;
     cf_aig_token?: string;
     clear_cf_aig_token?: boolean;
-    control_plane_url?: string;
     control_plane_key?: string;
     clear_control_plane_key?: boolean;
   };
@@ -56,7 +57,6 @@ export async function handlePrefsPatch(request: Request, env: Env): Promise<Resp
   if (body.gateway_id !== undefined) patch.gateway_id = body.gateway_id;
   if (body.cf_aig_token !== undefined) patch.cf_aig_token = body.cf_aig_token;
   if (body.clear_cf_aig_token) patch.cf_aig_token = "";
-  if (body.control_plane_url !== undefined) patch.control_plane_url = body.control_plane_url;
   if (body.control_plane_key !== undefined) {
     const k = body.control_plane_key.trim();
     if (k && !looksLikeClientKey(k)) {
@@ -76,8 +76,7 @@ export async function handlePrefsPatch(request: Request, env: Env): Promise<Resp
   if (Object.keys(patch).length === 0) {
     return json(
       {
-        error:
-          "Provide gateway_id, cf_aig_token, control_plane_url, and/or control_plane_key to update",
+        error: "Provide gateway_id, cf_aig_token, and/or control_plane_key to update",
       },
       { status: 400 },
     );
@@ -89,9 +88,8 @@ export async function handlePrefsPatch(request: Request, env: Env): Promise<Resp
     gateway_id: status.gateway_id,
     cf_aig_token_set: status.cf_aig_token_set,
     cf_aig_token_preview: maskSecret(merged.cf_aig_token),
-    configured: status.configured || !!resolveControlPlane(merged),
+    configured: status.configured || !!resolveControlPlane(merged, env),
     source: status.source,
-    ...controlPlaneStatus(merged),
+    ...controlPlaneStatus(merged, env),
   });
 }
-

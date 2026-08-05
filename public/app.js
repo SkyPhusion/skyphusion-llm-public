@@ -2109,9 +2109,9 @@ const gatewayModalId       = $("#gateway-modal-id");
 const gatewayModalToken    = $("#gateway-modal-token");
 const gatewayModalTokenHint= $("#gateway-modal-token-hint");
 const gatewayModalClear    = $("#gateway-modal-clear-token");
-const gatewayModalCpUrl    = $("#gateway-modal-cp-url");
 const gatewayModalCpKey    = $("#gateway-modal-cp-key");
 const gatewayModalCpKeyHint= $("#gateway-modal-cp-key-hint");
+const gatewayModalCpUrlLabel = $("#gateway-modal-cp-url-label");
 const gatewayModalClearCp  = $("#gateway-modal-clear-cp-key");
 const gatewayModalError    = $("#gateway-modal-error");
 const gatewayModalSave     = $("#gateway-modal-save");
@@ -2277,8 +2277,12 @@ async function openGatewayModal() {
         ? `saved token: ${prefs.cf_aig_token_preview || "••••"}`
         : "no token saved yet";
     }
-    if (gatewayModalCpUrl) {
-      gatewayModalCpUrl.value = prefs.control_plane_url || "https://play-proxy.skyphusion.org";
+    if (gatewayModalCpUrlLabel && prefs.control_plane_url) {
+      try {
+        gatewayModalCpUrlLabel.textContent = new URL(prefs.control_plane_url).host;
+      } catch {
+        gatewayModalCpUrlLabel.textContent = "play-proxy.skyphusion.org";
+      }
     }
     if (gatewayModalCpKeyHint) {
       gatewayModalCpKeyHint.textContent = prefs.control_plane_key_set
@@ -2322,16 +2326,12 @@ async function saveGatewayModal() {
   } else if (gatewayModalToken.value.trim()) {
     body.cf_aig_token = gatewayModalToken.value.trim();
   }
-  if (gatewayModalCpUrl) {
-    body.control_plane_url = gatewayModalCpUrl.value.trim() || "https://play-proxy.skyphusion.org";
-  }
   if (gatewayModalClearCp && gatewayModalClearCp.checked) {
     body.clear_control_plane_key = true;
   } else if (gatewayModalCpKey && gatewayModalCpKey.value.trim()) {
     body.control_plane_key = gatewayModalCpKey.value.trim();
   }
-  const hasCp =
-    body.control_plane_key || body.clear_control_plane_key || body.control_plane_url;
+  const hasCp = body.control_plane_key || body.clear_control_plane_key;
   if (!gateway_id && !body.cf_aig_token && !body.clear_cf_aig_token && !hasCp) {
     showGatewayModalError("enter a gateway slug, API token, and/or control-plane key");
     return;

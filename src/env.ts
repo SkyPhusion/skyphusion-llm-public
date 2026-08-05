@@ -44,6 +44,13 @@ export interface Env {
   // sent as cf-aig-authorization. Also used when Authenticated Gateway is on.
   // v0.164.0: optional on the worker in public demo mode (per-user token in D1).
   CF_AIG_TOKEN?: string;
+  /**
+   * Optional origin for prism-control-plane (default https://play-proxy.skyphusion.org).
+   * Must be an allowlisted host; user prefs cannot override (SSRF).
+   */
+  CONTROL_PLANE_URL?: string;
+  /** Set to "true" to allow http://localhost for local wrangler + local control-plane. */
+  CONTROL_PLANE_ALLOW_LOCALHOST?: string;
   // Optional. Sole deployer BYOK exception (v0.174.0 restore of the v0.22.1
   // path): when set, openai/gpt-image-* go direct to api.openai.com for
   // transparent PNG (background + output_format). When unset, those models

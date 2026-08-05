@@ -163,7 +163,9 @@ export async function requireInferenceBackend(
   opts?: { requireCfToken?: boolean },
 ): Promise<InferenceBackend | Response> {
   const prefs = await loadUserPrefs(env.DB, userEmail);
-  const cp = resolveControlPlane(prefs);
+  // Control-plane key intentionally replaces gateway BYOK for chat: the proxy
+  // holds host credentials. Gateway token is not required when CP is active.
+  const cp = resolveControlPlane(prefs, env);
   if (cp) return { kind: "control_plane", cp };
 
   const gatewayOrErr = await requireAiContext(env, userEmail, opts);
