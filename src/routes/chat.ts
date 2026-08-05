@@ -451,26 +451,6 @@ export async function runChat(request: Request, env: Env, model: ModelEntry, bod
       logId = cpResult.requestId;
     } else if (!aiCtx) {
       return json({ error: "AI gateway context missing" }, { status: 500 });
-    } else if (model.id === "@cf/llava-hf/llava-1.5-7b-hf") {
-      // LLaVA 1.5 is image-to-text: input is { image: number[] (raw bytes),
-      // prompt, max_tokens }, not the chat { messages } shape, and it's
-      // single-shot (one image + one prompt; prior turns and system prompt are
-      // not threaded). We surface it as a vision chat model so the existing
-      // attach UI works, but route it here for the different wire format.
-      const imgAtt = inputs.find((a) => a.type === "image");
-      if (!imgAtt?.data) {
-        return json({ error: "LLaVA needs an image attachment. Attach one, then ask about it." }, { status: 400 });
-      }
-      const parsedImg = parseDataUrl(imgAtt.data);
-      if (!parsedImg) {
-        return json({ error: "Invalid image data URL" }, { status: 400 });
-      }
-      result = await aiRun(aiCtx, model.id, {
-        image: [...base64ToBytes(parsedImg.base64)],
-        prompt: body.user_input || "Describe this image in detail.",
-        max_tokens: 512,
-      });
-      logId = aiLogId(aiCtx);
     } else if (model.provider === "anthropic") {
       const r = await callAnthropic(aiCtx, model, effectiveSystemPrompt || undefined, messages);
       result = r.raw;
