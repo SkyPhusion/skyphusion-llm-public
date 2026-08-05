@@ -1,3 +1,40 @@
+## v0.175.0
+
+feat: optional control-plane backend for metered chat (#150)
+
+Chat can bill through **prism-control-plane** (`play-proxy.skyphusion.org`) when the
+user saves a `pcp_` client key under Account settings. History, RAG, and non-chat
+modalities stay on this worker. AI Gateway BYOK remains the default when no key is set.
+
+Security (v0.175.0): control-plane origin is **not** user-configurable (SSRF). Only an
+allowlisted host from worker config / default; CodeQL ReDoS on trailing-slash strip fixed.
+
+### How to use (hosted test)
+
+1. Mint a client key on the control plane (operator enrollment).
+2. Account > AI Gateway > paste `pcp_…` (host is fixed to play-proxy).
+3. Send a chat turn; usage lands on the control-plane ledger.
+
+### Self-host / bindings
+
+Optional plain vars (no secret required for the default host):
+
+```toml
+# [vars]
+# CONTROL_PLANE_URL = "https://play-proxy.skyphusion.org"  # must pass host allowlist
+# CONTROL_PLANE_ALLOW_LOCALHOST = "true"  # local wrangler only
+```
+
+### Code
+- `src/control-plane.ts` -- allowlisted HTTP client, key grammar, chat/models/me helpers
+- `src/routes/shared.ts` -- `requireInferenceBackend` (control plane wins over gateway)
+- `src/routes/chat.ts` -- non-stream + stream (buffered) control-plane path
+- `src/routes/prefs.ts`, `src/user-prefs.ts`, `src/env.ts` -- key prefs + env
+- `public/app.js`, `public/index.html` -- settings UI
+- `tests/control-plane.test.ts` -- allowlist / SSRF / chat shape
+- `wrangler.example.toml`, `CLAUDE.md`, `package.json` 0.174.4 -> 0.175.0, `CHANGELOG.md`
+- typecheck + control-plane tests green
+
 ## v0.174.4
 
 docs: pre-announce README + CLAUDE accuracy pass
