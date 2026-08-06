@@ -192,6 +192,9 @@ const userInput         = $("#user-input");
 const runBtn            = $("#run");
 const transcriptEl      = $("#transcript");
 const convTitleEl       = $("#conv-title");
+const convCompactBadge  = $("#conv-compact-badge");
+const convCompactBtn    = $("#conv-compact-btn");
+const convUncompactBtn  = $("#conv-uncompact-btn");
 const outputMeta        = $("#output-meta");
 const historyList       = $("#history-list");
 const accountEmail      = $("#account-email");
@@ -260,6 +263,8 @@ const state = {
   gateway: null,
   currentConversationId: null,
   currentTurns: [],
+  /** Compact summary for model context (v0.175.7); null when expanded. */
+  currentCompact: null,
   modelsById: {},
   pendingAttachments: [],
   pollTimer: null,
@@ -1157,9 +1162,10 @@ async function loadConversations() {
 
 async function loadConversation(id) {
   stopPolling();
-  const { turns } = await api(`/api/conversations/${encodeURIComponent(id)}`);
+  const data = await api(`/api/conversations/${encodeURIComponent(id)}`);
   state.currentConversationId = id;
-  state.currentTurns = turns || [];
+  state.currentTurns = data.turns || [];
+  state.currentCompact = data.compact || null;
 
   // Set the model picker to the most-recent turn's model so the user can
   // continue with the same model by default (they can switch before submitting).
@@ -1175,6 +1181,7 @@ async function loadConversation(id) {
 
   renderTranscript(state.currentTurns);
   updateConvTitle();
+  updateCompactControls();
 
   // If the latest turn is still pending (async video/music job), resume polling.
   const last = state.currentTurns[state.currentTurns.length - 1];
@@ -1193,6 +1200,7 @@ function newChat() {
   stopPolling();
   state.currentConversationId = null;
   state.currentTurns = [];
+  state.currentCompact = null;
   userInput.value = "";
   autoGrowUserInput();
   state.pendingAttachments = [];
@@ -1200,6 +1208,7 @@ function newChat() {
   renderTranscript([]);
   outputMeta.textContent = "";
   updateConvTitle();
+  updateCompactControls();
   userInput.focus();
 }
 
@@ -1212,6 +1221,78 @@ function updateConvTitle() {
     const n = state.currentTurns.length;
     convTitleEl.textContent = `${preview || "conversation"} \u00b7 ${n} turn${n === 1 ? "" : "s"}`;
   }
+}
+
+/** Show compact/expand controls when the open conversation has enough chat turns. */
+function updateCompactControls() {
+  if (!convCompactBtn || !convUncompactBtn || !convCompactBadge) return;
+  const chatTurns = (state.currentTurns || []).filter(
+    (t) => t.model_type === "chat" && t.status === "done" && t.user_input && t.output,
+  );
+  const hasConv = !!state.currentConversationId && chatTurns.length > 0;
+  const compacted = !!state.currentCompact;
+  // Need keep_recent(2) + at least one turn to summarize.
+  const canCompact = hasConv && chatTurns.length >= 3;
+
+  convCompactBadge.hidden = !compacted;
+  convCompactBtn.hidden = !canCompact || compacted;
+  convUncompactBtn.hidden = !compacted;
+  convCompactBtn.disabled = false;
+  convUncompactBtn.disabled = false;
+}
+
+async function compactCurrentConversation() {
+  if (!state.currentConversationId) return;
+  convCompactBtn.disabled = true;
+  convCompactBtn.textContent = "compacting…";
+  try {
+    const model = modelSelect.value || undefined;
+    const data = await api(
+      `/api/conversations/${encodeURIComponent(state.currentConversationId)}/compact`,
+      {
+        method: "POST",
+        body: JSON.stringify({ keep_recent: 2, model }),
+      },
+    );
+    state.currentCompact = data.compact || null;
+    updateCompactControls();
+    const n = data.turns_summarized ?? 0;
+    const k = data.turns_kept_raw ?? 0;
+    outputMeta.textContent = `compacted ${n} turn${n === 1 ? "" : "s"}; keeping ${k} recent raw`;
+  } catch (err) {
+    outputMeta.textContent = err?.message || "compact failed";
+  } finally {
+    convCompactBtn.textContent = "compact";
+    updateCompactControls();
+  }
+}
+
+async function uncompactCurrentConversation() {
+  if (!state.currentConversationId) return;
+  convUncompactBtn.disabled = true;
+  try {
+    await api(
+      `/api/conversations/${encodeURIComponent(state.currentConversationId)}/compact`,
+      { method: "DELETE" },
+    );
+    state.currentCompact = null;
+    outputMeta.textContent = "expanded — next turn uses full history";
+    updateCompactControls();
+  } catch (err) {
+    outputMeta.textContent = err?.message || "expand failed";
+    updateCompactControls();
+  }
+}
+
+if (convCompactBtn) {
+  convCompactBtn.addEventListener("click", () => {
+    compactCurrentConversation();
+  });
+}
+if (convUncompactBtn) {
+  convUncompactBtn.addEventListener("click", () => {
+    uncompactCurrentConversation();
+  });
 }
 
 // ---------- Transcript rendering ----------

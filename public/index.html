@@ -201,6 +201,9 @@
       <main class="conversation">
         <header class="conv-head">
           <span id="conv-title">new conversation</span>
+          <span id="conv-compact-badge" class="conv-compact-badge" hidden title="Older turns are summarized for the model; full transcript still shown below">compacted</span>
+          <button id="conv-compact-btn" type="button" class="conv-compact-btn" hidden title="Summarize older turns so the model uses less context">compact</button>
+          <button id="conv-uncompact-btn" type="button" class="conv-compact-btn conv-uncompact-btn" hidden title="Clear summary; next turn resends full history">expand</button>
           <span id="output-meta"></span>
         </header>
         <div id="transcript" class="transcript"></div>

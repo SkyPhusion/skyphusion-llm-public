@@ -1,3 +1,23 @@
+## v0.175.7
+
+### Added
+- **Conversation compact.** Long multi-turn threads re-sent every prior turn into the model context with no way to shrink it. Users can now **compact** a conversation: older turns are summarized by a chat model; the next turn injects that summary and only the recent raw turns. Full UI transcript is unchanged. Expand clears the summary so the next turn uses full history again.
+
+### API
+- `POST /api/conversations/:id/compact` body `{ keep_recent?: number, model?: string }` (default keep 2, default model Llama 3.2 3B)
+- `DELETE /api/conversations/:id/compact` clears compact state
+- `GET /api/conversations/:id` includes `compact: null | { summary, through_turn_index, keep_recent, model, updated_at }`
+
+### Schema
+- `conversation_compact` table (migration `0003_conversation_compact.sql`); also in `schema.sql` for fresh installs
+
+### Code
+- `src/conversation-context.ts` -- pure split/apply helpers
+- `src/routes/conversations.ts` -- compact handlers; load helpers shared with chat
+- `src/routes/chat.ts` -- runChat + runChatStream fold compact into system prompt
+- `public/app.js` / `index.html` / `styles.css` -- compact / expand controls + badge
+- `tests/conversation-compact.test.ts`
+
 ## v0.175.6
 
 fix(dist): align `@skyphusion/create-prism` version with app release train

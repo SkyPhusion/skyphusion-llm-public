@@ -49,6 +49,8 @@ import {
 } from "./rag";
 import { resolveProjectForChat } from "./projects";
 import type { LongRunParams } from "./workflow";
+import { loadChatTurns, loadCompactState } from "./conversations";
+import { applyCompactToPriorTurns } from "../conversation-context";
 
 //
 // Multimodal model types:
@@ -218,22 +220,14 @@ export async function runChat(request: Request, env: Env, model: ModelEntry, bod
   // multimodal+RAG turns. We await each promise at its existing use site
   // below so the error surface is unchanged.
   const conversationIdIn = body.conversation_id?.trim() || "";
-  const priorTurnsPromise: Promise<{
-    rows: Array<{ user_input: string; output: string; turn_index: number }>;
-  }> = conversationIdIn
-    ? env.DB.prepare(
-        `SELECT user_input, output, turn_index
-           FROM chats
-          WHERE conversation_id = ?
-            AND user_email = ?
-            AND status = 'done'
-            AND model_type = 'chat'
-          ORDER BY turn_index ASC`
-      )
-        .bind(conversationIdIn, userEmail)
-        .all<{ user_input: string; output: string; turn_index: number }>()
-        .then((r) => ({ rows: r.results ?? [] }))
-    : Promise.resolve({ rows: [] });
+  // Prior turns + compact state (v0.175.7): when compacted, only recent raw
+  // turns are re-sent; older turns are replaced by a system summary block.
+  const priorContextPromise = conversationIdIn
+    ? Promise.all([
+        loadChatTurns(env, conversationIdIn, userEmail),
+        loadCompactState(env, conversationIdIn, userEmail),
+      ]).then(([turns, compact]) => applyCompactToPriorTurns(turns, compact))
+    : Promise.resolve(applyCompactToPriorTurns([], null));
 
   const retrievePromise: Promise<{ chunks: RetrievedChunk[]; error: string | null }> =
     body.use_docs
@@ -342,26 +336,19 @@ export async function runChat(request: Request, env: Env, model: ModelEntry, bod
     ? [{ type: "text", text: userText }, ...imageDataUrls.map((url) => ({ type: "image_url", image_url: { url } }))]
     : userText;
 
-  // ---- Multi-turn conversation continuation (v0.10.0) ----
-  // If body.conversation_id is present, fetch prior turns of that conversation
-  // (filtered to this user, completed chat turns only) and assemble a history
-  // of user/assistant message pairs. The current turn appends to that history.
-  // If no conversation_id, generate a new one for the first turn.
-  // The SELECT itself runs in parallel with the attachment walk (hoisted
-  // above as priorTurnsPromise); here we just consume the result.
+  // ---- Multi-turn conversation continuation (v0.10.0) + compact (v0.175.7) ----
+  // If body.conversation_id is present, load prior turns (and optional compact
+  // summary). The current turn appends. If no conversation_id, mint a new one.
   let conversationId = conversationIdIn;
   let turnIndex = 0;
-  const priorTurns: Array<{ user_input: string; output: string }> = [];
+  let priorTurns: Array<{ user_input: string; output: string }> = [];
+  let compactBlock: string | null = null;
 
   if (conversationId) {
-    const { rows } = await priorTurnsPromise;
-    for (const r of rows) {
-      // Skip empty/failed prior turns defensively.
-      if (r.user_input && r.output) {
-        priorTurns.push({ user_input: r.user_input, output: r.output });
-      }
-    }
-    turnIndex = rows.length ? (rows[rows.length - 1].turn_index + 1) : 0;
+    const prior = await priorContextPromise;
+    priorTurns = prior.priorTurns;
+    turnIndex = prior.turnIndex;
+    compactBlock = prior.compactBlock;
   } else {
     // crypto.randomUUID() is available in Workers runtime.
     conversationId = crypto.randomUUID();
@@ -376,14 +363,12 @@ export async function runChat(request: Request, env: Env, model: ModelEntry, bod
   const { results: webResults, error: webSearchError } = await webSearchPromise;
   const allRetrieved: RetrievedItem[] = [...retrievedChunks, ...webResults];
 
-  // Build the effective system prompt: user-supplied prompt followed by
-  // the retrieval block(s). Order: user prompt, then RAG (more specific
-  // to this user's corpus), then web (more general). Either or both
-  // retrieval blocks may be empty.
+  // Build the effective system prompt: user-supplied prompt, optional compact
+  // block for earlier turns, then retrieval. Order: user, compact, RAG, web.
   const userSystemPrompt = body.system_prompt?.trim() ?? "";
   const retrievalBlock = retrievedChunks.length ? formatRetrievalForSystemPrompt(retrievedChunks) : "";
   const webBlock = webResults.length ? formatWebForSystemPrompt(webResults) : "";
-  const effectiveSystemPrompt = [userSystemPrompt, retrievalBlock, webBlock]
+  const effectiveSystemPrompt = [userSystemPrompt, compactBlock, retrievalBlock, webBlock]
     .filter(Boolean)
     .join("\n\n");
 
@@ -1260,25 +1245,15 @@ export async function runChatStream(request: Request, env: Env, model: ModelEntr
   const { resolvedSystemPrompt, scopedProjectId } = await resolveProjectForChat(env, userEmail, body);
   body.system_prompt = resolvedSystemPrompt;
 
-  // Hot-path parallelization (mirrors runChat v0.12.1). Kick off SELECT +
-  // RAG retrieve before the attachment walk; await at the existing use sites.
+  // Hot-path parallelization (mirrors runChat v0.12.1). Kick off prior
+  // context (turns + compact) + RAG before the attachment walk.
   const conversationIdIn = body.conversation_id?.trim() || "";
-  const priorTurnsPromise: Promise<{
-    rows: Array<{ user_input: string; output: string; turn_index: number }>;
-  }> = conversationIdIn
-    ? env.DB.prepare(
-        `SELECT user_input, output, turn_index
-           FROM chats
-          WHERE conversation_id = ?
-            AND user_email = ?
-            AND status = 'done'
-            AND model_type = 'chat'
-          ORDER BY turn_index ASC`
-      )
-        .bind(conversationIdIn, userEmail)
-        .all<{ user_input: string; output: string; turn_index: number }>()
-        .then((r) => ({ rows: r.results ?? [] }))
-    : Promise.resolve({ rows: [] });
+  const priorContextPromise = conversationIdIn
+    ? Promise.all([
+        loadChatTurns(env, conversationIdIn, userEmail),
+        loadCompactState(env, conversationIdIn, userEmail),
+      ]).then(([turns, compact]) => applyCompactToPriorTurns(turns, compact))
+    : Promise.resolve(applyCompactToPriorTurns([], null));
 
   const retrievePromise: Promise<{ chunks: RetrievedChunk[]; error: string | null }> =
     body.use_docs
@@ -1370,19 +1345,17 @@ export async function runChatStream(request: Request, env: Env, model: ModelEntr
     ? [{ type: "text", text: userText }, ...imageDataUrls.map((url) => ({ type: "image_url", image_url: { url } }))]
     : userText;
 
-  // Consume the parallel-hoisted promises.
+  // Consume the parallel-hoisted promises (turns + compact + retrieval).
   let conversationId = conversationIdIn;
   let turnIndex = 0;
-  const priorTurns: Array<{ user_input: string; output: string }> = [];
+  let priorTurns: Array<{ user_input: string; output: string }> = [];
+  let compactBlock: string | null = null;
 
   if (conversationId) {
-    const { rows } = await priorTurnsPromise;
-    for (const r of rows) {
-      if (r.user_input && r.output) {
-        priorTurns.push({ user_input: r.user_input, output: r.output });
-      }
-    }
-    turnIndex = rows.length ? (rows[rows.length - 1].turn_index + 1) : 0;
+    const prior = await priorContextPromise;
+    priorTurns = prior.priorTurns;
+    turnIndex = prior.turnIndex;
+    compactBlock = prior.compactBlock;
   } else {
     conversationId = crypto.randomUUID();
   }
@@ -1394,7 +1367,7 @@ export async function runChatStream(request: Request, env: Env, model: ModelEntr
   const userSystemPrompt = body.system_prompt?.trim() ?? "";
   const retrievalBlock = retrievedChunks.length ? formatRetrievalForSystemPrompt(retrievedChunks) : "";
   const webBlock = webResults.length ? formatWebForSystemPrompt(webResults) : "";
-  const effectiveSystemPrompt = [userSystemPrompt, retrievalBlock, webBlock]
+  const effectiveSystemPrompt = [userSystemPrompt, compactBlock, retrievalBlock, webBlock]
     .filter(Boolean)
     .join("\n\n");
 
