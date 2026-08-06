@@ -136,8 +136,9 @@ All matched in the single `fetch` handler in `src/index.ts` (see the one-line po
 | GET | `/api/job/:id` | Poll an async video/music job status (reads the chats row). |
 | GET | `/api/import/:id` | Poll a durable `.zip` RAG import workflow (reads the `LongRunWorkflow` instance status). |
 | GET | `/api/conversations` | List caller's conversations (grouped by `conversation_id`). |
-| GET / DELETE | `/api/conversations/:id` | Full transcript / cascade-delete turns + R2 artifacts. |
+| GET / DELETE | `/api/conversations/:id` | Full transcript / cascade-delete turns + R2 artifacts. GET includes `compact` state. |
 | PATCH | `/api/conversations/:id/project` | Move conversation to a project or clear it (v0.20.2). |
+| POST / DELETE | `/api/conversations/:id/compact` | Summarize older turns for model context / clear summary (v0.175.7). UI transcript unchanged. |
 | GET / POST | `/api/documents` | List RAG docs (`?project_id=N` filter) / upload+chunk+embed. |
 | GET / DELETE | `/api/documents/:id` | Metadata + chunk preview / cascade-delete doc, chunks, vectors, R2. |
 | GET / POST | `/api/projects` | List projects with doc counts / create project. |
