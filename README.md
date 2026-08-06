@@ -4,7 +4,7 @@
 [![Typecheck](https://github.com/skyphusion-labs/prism/actions/workflows/typecheck.yml/badge.svg)](https://github.com/skyphusion-labs/prism/actions/workflows/typecheck.yml)
 [![Voice chat](https://img.shields.io/badge/%F0%9F%8E%99%EF%B8%8F_voice_chat-speak_%26_hear_chat_models-6d8cff)](#voice-chat)
 
-A multimodal AI playground deployed as a single Cloudflare Worker. **Live demo:** https://play.skyphusion.org (free signup, bring your own AI Gateway). **~44 chat models** across Workers AI, Anthropic, xAI, OpenAI, Google, and Moonshot (see `GET /api/models`), **hands-free voice chat** (talk to any chat model and hear it reply), image / TTS / STT / video / music generation, cross-model artifact reuse within a conversation (v0.21.7), RAG over files of any type (v0.23.0), projects that scope a knowledge base and system prompt, Discord chat-log ingestion, opt-in web search via self-hosted SearXNG and Wikipedia, SSE streaming on supported chat models, and multi-turn conversations. One web UI with first-party accounts, per-user history, R2 for all binary artifacts.
+A multimodal AI playground deployed as a single Cloudflare Worker. **Live demo:** https://play.skyphusion.org (free signup, bring your own AI Gateway). Catalog breadth is live at `GET /api/models` (and `src/models.ts`): on the order of **~44 chat** models plus image / TTS / STT / video / music (roughly **~90+** entries across modalities; do not treat any hardcoded count in this README as the source of truth). **Hands-free voice chat**, cross-model artifact reuse, RAG, projects, Discord ingestion, web search, SSE streaming, and multi-turn conversations (with optional **compact**). One web UI with first-party accounts, per-user history, R2 for all binary artifacts.
 
 <p align="center">
   <img src="docs/screenshot-desktop.jpg" alt="Desktop UI: image generation with Nano Banana Pro" width="800"><br><br>
@@ -36,7 +36,7 @@ One Worker, no framework, no build step beyond TypeScript. The interesting parts
 - **Cloudflare Workflows** owns long-running Unified Billing video and music generation (30s to 3min jobs). The `LongRunWorkflow` class holds the blocking `env.AI.run` call alive across step boundaries that `ctx.waitUntil` cannot.
 - **Two auth modes, one identity seam.** An `AUTH_MODE` setting picks how the worker learns who you are: **public** mode (the hosted product) runs first-party username/password accounts behind an opaque server-side session cookie, while **access** mode (the default, for private self-host) trusts Cloudflare Access's `Cf-Access-Authenticated-User-Email`. Either way a single stable, opaque account id scopes history and R2 ownership (`customMetadata.user_email`), so cross-user access is impossible even if a UUID is guessed.
 - **Client-side video keyframe extraction** sends 8 evenly-spaced frames to vision-capable chat models instead of uploading the full video file.
-- **Searchable model picker** (v0.111.0) groups the live catalog (~93 entries across 7 modalities as of v0.175.6) with capability badges (vision, stream) inline; type to filter by name.
+- **Searchable model picker** (v0.111.0) groups the live catalog from `GET /api/models` (chat + image + video + speech + music) with capability badges (vision, stream) inline; type to filter by name.
 
 ## Features
 
@@ -70,9 +70,11 @@ One Worker, no framework, no build step beyond TypeScript. The interesting parts
 
 **Streaming (v0.13.0+):** `POST /api/chat/stream` returns SSE for any chat model flagged `streaming: true` in the catalog. Token deltas surface as `{ type: "delta", text: "..." }` events, terminal completion as `{ type: "done", ... }` with token counts and conversation IDs. Client disconnect aborts the upstream model call immediately.
 
-**Multi-turn conversations:** `conversation_id` plus `turn_index` on chat rows. Continuing a conversation pulls prior turns and assembles a full message history for the next call. Mixed-model conversations allowed (start with Llama, continue with Claude). Text-only on continuation; prior images, audio, and video are not re-sent.
+**Multi-turn conversations:** `conversation_id` plus `turn_index` on chat rows. Continuing a conversation pulls prior completed chat turns and assembles them for the next call. Mixed-model conversations allowed (start with Llama, continue with Claude). Text-only on continuation; prior images, audio, and video are not re-sent.
 
-**UI (focus-mode redesign, v0.110.0+):** a single centered conversation column with a floating composer; the sidebar (searchable history, projects, documents) is a slide-in overlay; a searchable model picker (type to filter, v0.111.0); a ⚙ popover for the system prompt + retrieval toggles and an account menu in the top bar; a paperclip attach button and a voice-chat mic. Capability-aware mode switching (vision-only attachment types; image-mode re-skins to "negative prompt"; TTS / STT / video / music / voice hide irrelevant inputs), FLUX.2 reference-image attach UI (v0.16.0), per-turn web-search toggle (v0.17.0), per-user replay-able history with attachments and generated artifacts, Enter to send / Shift+Enter for newline. Mobile-optimized (safe-area insets, touch targets, no iOS zoom).
+**Conversation compact (v0.175.7):** long threads re-send every prior turn into the model context by default. The UI **compact** control (conversation header) asks a chat model to summarize older turns; the next call injects that summary into the system prompt and only re-sends the recent raw turns (default keep last 2). The full UI transcript is unchanged. **Expand** clears the summary so the next turn uses full history again. API: `POST` / `DELETE /api/conversations/:id/compact`; `GET /api/conversations/:id` returns `compact: null | { summary, through_turn_index, keep_recent, model, updated_at }`.
+
+**UI (focus-mode redesign, v0.110.0+):** a single centered conversation column with a floating composer; the sidebar (searchable history, projects, documents) is a slide-in overlay; a searchable model picker (type to filter, v0.111.0); a ⚙ popover for the system prompt + retrieval toggles and an account menu in the top bar; a paperclip attach button and a voice-chat mic; conversation header **compact** / **expand** when a thread has enough turns (v0.175.7). Capability-aware mode switching (vision-only attachment types; image-mode re-skins to "negative prompt"; TTS / STT / video / music / voice hide irrelevant inputs), FLUX.2 reference-image attach UI (v0.16.0), per-turn web-search toggle (v0.17.0), per-user replay-able history with attachments and generated artifacts, Enter to send / Shift+Enter for newline. Mobile-optimized (safe-area insets, touch targets, no iOS zoom).
 
 **Auth (two modes via `AUTH_MODE`):** **public** (the hosted product) is first-party username/password signup with an opaque session cookie and mandatory per-user BYOK: each user brings their own AI Gateway, the worker holds no gateway secrets, and inference bills the user, never the host. **access** (the default, for private self-host) puts Cloudflare Access on the worker URL and scopes per-user history and R2 ownership via `Cf-Access-Authenticated-User-Email` (free up to 50 seats on Zero Trust). See [Running the public service](#running-the-public-service).
 
@@ -362,9 +364,11 @@ The worker is the only public surface. R2 is private; the worker streams objects
 | GET/WS | `/api/stt/stream`         | WebSocket for conversational STT (Deepgram Flux via the `SttSession` DO); persists the transcript to history on close |
 | POST   | `/api/tts`                | Synthesize text to speech (Aura-2) and stream the audio back (no history row); used by the voice-chat loop |
 | GET    | `/api/conversations`      | List the caller's conversations (grouped by `conversation_id`, includes each conversation's `project_id`) |
-| GET    | `/api/conversations/:id`  | Full transcript for a conversation |
-| DELETE | `/api/conversations/:id`  | Cascade delete of all turns plus R2 artifacts |
+| GET    | `/api/conversations/:id`  | Full transcript for a conversation; includes `compact` state when set (v0.175.7) |
+| DELETE | `/api/conversations/:id`  | Cascade delete of all turns plus R2 artifacts (and compact state) |
 | PATCH  | `/api/conversations/:id/project` | Move a conversation to a project, or clear it (`{project_id: number \| null}`) |
+| POST   | `/api/conversations/:id/compact` | Summarize older turns for model context (`{ keep_recent?, model? }`; v0.175.7) |
+| DELETE | `/api/conversations/:id/compact` | Clear compact summary; next turn uses full raw history (v0.175.7) |
 | GET    | `/api/history/:id`        | One chat row with full attachment + output references |
 | DELETE | `/api/history/:id`        | Delete a single chat row and clean up its R2 objects |
 | GET    | `/api/job/:id`            | Poll an async video / music generation job's status |
