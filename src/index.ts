@@ -41,6 +41,8 @@ import {
   handleConversationGet,
   handleConversationDelete,
   handleConversationMoveToProject,
+  handleConversationCompact,
+  handleConversationCompactClear,
 } from "./routes/conversations";
 import {
   handleDocumentList,
@@ -232,6 +234,12 @@ export default {
     const cp = url.pathname.match(/^\/api\/conversations\/([A-Za-z0-9_:-]+)\/project$/);
     if (cp && request.method === "PATCH") {
       return handleConversationMoveToProject(request, env, cp[1]);
+    }
+    // v0.175.7: compact older turns into a summary for model context.
+    const cc = url.pathname.match(/^\/api\/conversations\/([A-Za-z0-9_:-]+)\/compact$/);
+    if (cc) {
+      if (request.method === "POST") return handleConversationCompact(request, env, cc[1]);
+      if (request.method === "DELETE") return handleConversationCompactClear(request, env, cc[1]);
     }
 
     const h = url.pathname.match(/^\/api\/history\/(\d+)$/);

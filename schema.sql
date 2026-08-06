@@ -50,6 +50,23 @@ CREATE TABLE IF NOT EXISTS chats (
 CREATE INDEX IF NOT EXISTS idx_chats_conversation
   ON chats(conversation_id, turn_index);
 
+-- Compact state for multi-turn context (v0.175.7). Full transcript stays in
+-- chats; this row holds a summary of older turns so the model path does not
+-- re-send them. See src/conversation-context.ts.
+CREATE TABLE IF NOT EXISTS conversation_compact (
+  conversation_id     TEXT NOT NULL,
+  user_email          TEXT NOT NULL,
+  summary             TEXT NOT NULL,
+  through_turn_index  INTEGER NOT NULL,
+  keep_recent         INTEGER NOT NULL DEFAULT 2,
+  model               TEXT NOT NULL,
+  updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (conversation_id, user_email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_compact_user
+  ON conversation_compact(user_email);
+
 CREATE INDEX IF NOT EXISTS idx_chats_user_created
   ON chats(user_email, created_at DESC);
 
