@@ -1,3 +1,41 @@
+## v1.0.3
+
+Patch release: the account-deletion modal drops its password out of the DOM on every dismissal, and the credential-input class is now guarded rather than the three instances of it.
+
+### Security
+
+- **The account-deletion password input is cleared on every close path.** `closeAccountDeleteModal`
+  now clears it, matching the two AI Gateway credential inputs. Established by enumeration rather
+  than by analogy with the gateway modal: all four dismissal paths (the backdrop and the close
+  affordance via `data-modal-close`, Escape, and the cancel button) route through that one function,
+  and the success path calls `location.reload()`, so the value cannot outlive the modal by either
+  route. It is deliberately **not** cleared on a failed delete, where a wrong password must survive
+  so the user can correct it; clearing on dismissal and clearing on every error are different rules
+  and only the first is wanted.
+
+### Tests
+
+- **A class guard over credential inputs, scoped to the property rather than to the instances.**
+  The population is `type="password"` inputs in `index.html`, pinned at five so a sixth cannot join
+  silently. Three are modal-resident and must be cleared inside their own modal's close function;
+  two live on the auth screen and are declared as exclusions with the reason attached, because they
+  have no dismissal path to hang a clear on and their value must survive a failed login. A guard
+  demanding a clear there would fire on correct code, and a guard that refuses on healthy code is
+  one people learn to switch off.
+
+### Code
+
+- `public/app.js` -- `closeAccountDeleteModal` clears the password input
+- `tests/public-url-safety.test.ts` -- account-deletion close-path coverage plus the
+  credential-input class guard; 21 assertions to 27
+- `src/version.ts` -- `VERSION` 1.0.2 -> 1.0.3
+- `package.json` -- 1.0.2 -> 1.0.3
+- `packages/create-prism/package.json` -- 1.0.2 -> 1.0.3 (locked to the app SemVer)
+- `CHANGELOG.md` -- this entry
+
+No schema change, no new binding. `npm run typecheck` clean; `npm test` green at 365 passed across
+35 files. (fleet-chezmoi#1638)
+
 ## v1.0.2
 
 Patch release: the SPA constrains what an href it did not construct is allowed to navigate to, and the credential modal drops both secrets out of the DOM on every close path.

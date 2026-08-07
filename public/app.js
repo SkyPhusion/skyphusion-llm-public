@@ -2859,6 +2859,17 @@ function openAccountDeleteModal() {
 }
 function closeAccountDeleteModal() {
   if (accountDeleteModal) accountDeleteModal.hidden = true;
+  // Drop the password out of the DOM on the way out, matching the AI Gateway
+  // modal. All four dismissal paths route through here (the backdrop and the
+  // close affordance via data-modal-close, Escape, and the cancel button), and
+  // the success path calls location.reload(), so the value cannot outlive the
+  // modal by either route.
+  //
+  // Deliberately NOT cleared on a failed delete: a wrong password leaves the
+  // modal open with the value intact so the user can correct it. Clearing on
+  // dismissal and clearing on every error are different rules, and only the
+  // first one is wanted here.
+  if (accountDeletePassword) accountDeletePassword.value = "";
 }
 async function submitAccountDelete() {
   const password = accountDeletePassword ? accountDeletePassword.value : "";

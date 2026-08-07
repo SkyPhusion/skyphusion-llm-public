@@ -204,6 +204,117 @@ describe("wiring: the credential modal clears its inputs on every close path", (
   });
 });
 
+// The account-deletion modal is the third credential input and it has the same
+// dismissal shape, established by enumeration rather than by analogy with the
+// gateway modal: all four of its dismissal paths (the backdrop and the close
+// affordance via data-modal-close, Escape, and the cancel button) route through
+// closeAccountDeleteModal, and the success path calls location.reload(), which
+// tears the page down along with the value.
+//
+// Note what is deliberately NOT asserted: the input is not cleared on a FAILED
+// delete. A wrong password leaves the modal open with the value intact so the
+// user can correct it, which is the right behaviour and would be worse if
+// "clear it everywhere" were applied without thinking.
+describe("wiring: the account-deletion modal clears its password on every close path", () => {
+  function closeAccountDeleteModalBody(): string {
+    const m = appSrc.match(/function closeAccountDeleteModal\(\)\s*\{([\s\S]*?)\n\}/);
+    if (!m) {
+      throw new Error(
+        "could not locate closeAccountDeleteModal in public/app.js; the " +
+          "extractor is stale and this suite would otherwise assert nothing",
+      );
+    }
+    return m[1];
+  }
+
+  it("the extractor finds a non-empty function body (control)", () => {
+    expect(closeAccountDeleteModalBody().trim().length).toBeGreaterThan(0);
+  });
+
+  it("clears the password input", () => {
+    expect(closeAccountDeleteModalBody()).toMatch(/accountDeletePassword\.value = ""/);
+  });
+
+  it("every dismissal still routes through closeAccountDeleteModal", () => {
+    expect(appSrc).toMatch(/modalId === "account-delete-modal"\) closeAccountDeleteModal\(\)/);
+    expect(appSrc).toMatch(
+      /accountDeleteCancel\.addEventListener\("click", closeAccountDeleteModal\)/,
+    );
+    expect(appSrc).toMatch(/!accountDeleteModal\.hidden\) closeAccountDeleteModal\(\)/);
+  });
+});
+
+// CLASS GUARD over the credential inputs themselves. Same intent as the href
+// guard below: the point is the NEXT password input somebody adds, not the
+// three that exist today.
+//
+// THE POPULATION IS DELIBERATELY NOT "every password input". Two of the five
+// live on the auth SCREEN rather than in a modal: they have no dismissal path
+// to hang a clear on, and the success path replaces the whole document via
+// location.reload(). Demanding a clear there would fire on correct code, and a
+// guard that refuses on healthy code is one people learn to switch off. So the
+// class is "password inputs inside a dismissable modal", the exclusions are
+// declared by id with the reason attached, and the total is pinned so a sixth
+// input cannot join either group silently.
+describe("class guard: every modal-resident credential input is cleared on close", () => {
+  const CLEARED_ON_CLOSE = [
+    "gateway-modal-token",
+    "gateway-modal-cp-key",
+    "account-delete-password",
+  ];
+  // No dismissal path exists for these; the auth screen is torn down by
+  // location.reload() on success, and on failure the value must survive so the
+  // user can correct a typo.
+  const NOT_MODAL_RESIDENT = ["auth-password", "auth-password2"];
+
+  const passwordIds = [...indexSrc.matchAll(/<input id="([^"]+)" type="password"/g)].map(
+    (m) => m[1],
+  );
+
+  it("the enumerator finds password inputs at all (control)", () => {
+    expect(passwordIds.length).toBeGreaterThan(0);
+  });
+
+  it("the population is exactly the five accounted for", () => {
+    // A sixth fails here and forces whoever added it into one of the two
+    // lists above, with a reason, rather than inheriting neither.
+    expect(passwordIds.sort()).toEqual(
+      [...CLEARED_ON_CLOSE, ...NOT_MODAL_RESIDENT].sort(),
+    );
+  });
+
+  // SCOPED TO THE CLOSE FUNCTION, NOT THE FILE. The whole-file version of this
+  // assertion passes today for a reason that has nothing to do with the
+  // property: every one of these inputs is ALSO cleared when its modal OPENS,
+  // so a substring search over app.js is green whether or not anything clears
+  // on close. It is green in both worlds, which makes it no assertion at all.
+  // Extract the close function and look only inside it.
+  function closeBody(fn: string): string {
+    const m = appSrc.match(new RegExp(`function ${fn}\\(\\)\\s*\\{([\\s\\S]*?)\\n\\}`));
+    if (!m) {
+      throw new Error(`could not extract ${fn} from public/app.js; extractor is stale`);
+    }
+    return m[1];
+  }
+
+  it("each modal-resident input is cleared INSIDE its own modal's close function", () => {
+    const closerFor: Record<string, [string, string]> = {
+      "gateway-modal-token": ["closeGatewayModal", "gatewayModalToken"],
+      "gateway-modal-cp-key": ["closeGatewayModal", "gatewayModalCpKey"],
+      "account-delete-password": ["closeAccountDeleteModal", "accountDeletePassword"],
+    };
+    for (const id of CLEARED_ON_CLOSE) {
+      const entry = closerFor[id];
+      expect(entry, `no closer mapped for ${id}`).toBeTruthy();
+      const [fn, v] = entry;
+      expect(
+        closeBody(fn).includes(`${v}.value = ""`),
+        `${id} is modal-resident but ${fn} does not clear ${v}`,
+      ).toBe(true);
+    }
+  });
+});
+
 // CLASS GUARD. The point of this block is the NEXT link sink, not this one.
 // Enumerate every interpolated href in app.js and require each to be
 // accounted for; a new one fails here and forces whoever adds it to say
