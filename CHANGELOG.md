@@ -1,3 +1,51 @@
+## v1.0.2
+
+Patch release: the SPA constrains what an href it did not construct is allowed to navigate to, and the credential modal drops both secrets out of the DOM on every close path.
+
+### Security
+
+- **Link scheme allowlist on values this worker did not construct.** Web-search citations reach the
+  transcript carrying a `url` field that originates off-box, and an href has to answer two separate
+  questions: can this break out of the attribute, and what does this navigate to. `escapeHtml`
+  answers the first and is unchanged; the new `window.safeHref` (`public/url-safety.js`) answers the
+  second, allowing `http:` and `https:` and returning `#` for anything else. It resolves the scheme
+  with the URL parser rather than by pattern, so the case-shifted, leading-whitespace and
+  embedded-tab/newline spellings all normalise to the same refusal instead of each needing its own
+  rule. Accepted URLs are returned unchanged rather than normalised, so the href and the link text
+  beside it stay byte-identical. Both guards are applied at the sink, and a class guard in the suite
+  enumerates every interpolated href in `app.js` and fails when a new one appears, so the next link
+  sink has to state which category it is in rather than inheriting escaping alone.
+- **The AI Gateway credential modal clears both inputs on every close path.** `closeGatewayModal`
+  now clears the Cloudflare API token and the `pcp_` control-plane key, so no client-side copy of
+  either secret outlives the modal that collected it. The clear sits on that single chokepoint
+  because every dismissal already routes through it (save success, cancel, backdrop, the close
+  affordance, Escape), which makes the property hold by construction rather than by five call sites
+  staying correct; the suite asserts that routing so it stops being an assumption. Neither secret is
+  persisted anywhere on the client: the whole storage surface of `public/` remains a single
+  `localStorage` key holding the active project id.
+
+### Code
+
+- `public/url-safety.js` -- new; `window.safeHref`, loaded as a classic script before `app.js`
+- `public/index.html` -- load `/url-safety.js` ahead of `/app.js` (classic scripts run in order)
+- `public/app.js` -- retrieved-web citation href passes through `safeHref`; `closeGatewayModal`
+  clears both credential inputs
+- `tests/public-url-safety.test.ts` -- new; 21 assertions. Behavioural coverage evaluates the
+  shipped guard file itself and refuses to run if `window.safeHref` is missing, so a rename cannot
+  produce a vacuous pass. Wiring coverage is source-level, because `app.js` touches the DOM at top
+  level and cannot be evaluated without a DOM harness this project does not carry; each wiring
+  assertion carries a positive control so a matcher that has stopped matching fails loudly. Includes
+  the class guard over every interpolated href.
+- `src/version.ts` -- `VERSION` 1.0.1 -> 1.0.2, so the version on the wire moves with the
+  release rather than lagging it
+- `CLAUDE.md` -- the release procedure now names all three files a bump has to touch
+- `package.json` -- 1.0.1 -> 1.0.2
+- `packages/create-prism/package.json` -- 1.0.1 -> 1.0.2 (locked to the app SemVer)
+- `CHANGELOG.md` -- this entry
+
+No schema change, no new binding. `npm run typecheck` clean; `npm test` green at 359 passed across
+35 files. (fleet-chezmoi#1638)
+
 ## v1.0.1
 
 Patch release: gateway credential resolution is now a single seam on every model path, and the RAG zero-join diagnostic returned to a caller is scoped to that caller.
