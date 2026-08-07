@@ -4,7 +4,49 @@
 [![Typecheck](https://github.com/skyphusion-labs/prism/actions/workflows/typecheck.yml/badge.svg)](https://github.com/skyphusion-labs/prism/actions/workflows/typecheck.yml)
 [![Voice chat](https://img.shields.io/badge/%F0%9F%8E%99%EF%B8%8F_voice_chat-speak_%26_hear_chat_models-6d8cff)](#voice-chat)
 
-A multimodal AI playground deployed as a single Cloudflare Worker. **Live demo:** https://play.skyphusion.org (free signup, bring your own AI Gateway). Catalog breadth is live at `GET /api/models` (and `src/models.ts`): on the order of **~44 chat** models plus image / TTS / STT / video / music (roughly **~90+** entries across modalities; do not treat any hardcoded count in this README as the source of truth). **Hands-free voice chat**, cross-model artifact reuse, RAG, projects, Discord ingestion, web search, SSE streaming, and multi-turn conversations (with optional **compact**). One web UI with first-party accounts, per-user history, R2 for all binary artifacts.
+A multimodal AI playground deployed as a single Cloudflare Worker. **Live demo:** https://play.skyphusion.org (free signup, bring your own AI Gateway). Catalog breadth is live at `GET /api/models` (and `src/models.ts`): **93** models (44 chat + 21 image + 19 video + 3 TTS + 4 STT + 1 music + 1 live voice); the tables under [Features](#features) list every id. Native clients hit the commercial plane ([prism-control-plane](https://github.com/skyphusion-labs/prism-control-plane)); this Worker is the playground surface (RAG, projects, compact, web search). **Hands-free voice chat**, cross-model artifact reuse, RAG, projects, Discord ingestion, web search, SSE streaming, and multi-turn conversations (with optional **compact**). One web UI with first-party accounts, per-user history, R2 for all binary artifacts.
+
+```mermaid
+flowchart TB
+  subgraph browser["Browser / play.skyphusion.org"]
+    UI["public/ app.js<br/>chat · image · video · voice"]
+  end
+
+  subgraph worker["Worker: skyphusion-llm"]
+    Auth["AUTH_MODE public or access"]
+    Chat["/api/chat · /api/chat/stream"]
+    Multi["image · TTS · STT · video · music"]
+    RAG["Vectorize + D1 RAG"]
+    WF["LongRunWorkflow<br/>video · music"]
+  end
+
+  subgraph store["Bindings"]
+    D1["D1 history + chunks"]
+    R2["R2 artifacts"]
+    VZ["Vectorize embeddings"]
+  end
+
+  subgraph ai["Cloudflare AI"]
+    GW["AI Gateway"]
+    Run["env.AI.run"]
+  end
+
+  subgraph native["Native apps optional"]
+    iOS["prism-ios → play-proxy<br/>control plane not this Worker"]
+  end
+
+  UI --> Auth --> Chat
+  Auth --> Multi
+  Chat --> Run
+  Multi --> Run
+  Multi --> WF
+  Chat --> RAG
+  RAG --> VZ
+  Chat --> D1
+  Multi --> R2
+  Run --> GW
+  iOS -.->|"separate host<br/>play-proxy.skyphusion.org"| native
+```
 
 <p align="center">
   <img src="docs/screenshot-desktop.jpg" alt="Desktop UI: image generation with Nano Banana Pro" width="800"><br><br>
@@ -40,23 +82,146 @@ One Worker, no framework, no build step beyond TypeScript. The interesting parts
 
 ## Features
 
-**Chat (see `GET /api/models` / `src/models.ts` for the live list):**
-- Workers AI: Llama 4 Scout, Llama 3.x family, Qwen3 30B / QwQ 32B / Qwen2.5 Coder 32B, DeepSeek R1, Mistral Small 3.1, Gemma 4 26B, Granite 4 Micro, Nemotron 3 120B, GLM-4.7 Flash / GLM-5.2, GPT-OSS 120B / 20B, Kimi K2.6 / K2.7 Code, SEA-LION v4 27B, removed (single-shot vision; the one non-streaming model)
-- Anthropic (Unified Billing): Sonnet 5, Opus 5, Opus 4.8 / 4.7 / 4.6, Sonnet 4.6, Haiku 4.5 (all streaming; Fable needs `binding: true`)
-- xAI (Unified Billing): Grok 4.5, Grok 4.3, Grok 4.20 (Multi-Agent and Reasoning)
-- OpenAI (Unified Billing): GPT-5.5 / 5.5-pro, GPT-5.6 Sol / Terra / Luna (Responses API), GPT-5.4 / mini, o4-mini
-- Google Gemini (Unified Billing): Gemini 3.1 Pro, 3.5 Flash, 3.6 Flash
-- Moonshot (Unified Billing): Kimi K3
+**Full model catalog (93 entries):** tables below are generated from `src/models.ts`. Live list always wins: `GET /api/models`. The commercial control plane ([prism-control-plane](https://github.com/skyphusion-labs/prism-control-plane)) mirrors the same ids in `src/catalog.ts`.
 
-**Image generation:** Google Nano Banana Pro / Nano Banana 2 / Lite / Imagen 4 (Unified Billing), GPT Image 1.5 and GPT Image 2 (opaque on the proxy; transparent PNG only when `OPENAI_API_KEY` is set, v0.174.0), Recraft V4 / V4.1 / V4.1 Pro (opaque, art-directed), xAI Grok Imagine Image (+ Quality), ByteDance Seedream 5 Pro / Lite, FLUX 2 Klein 9B/4B, FLUX 2 Dev, FLUX-1 schnell, Lucid Origin, Phoenix 1.0, Dreamshaper 8 LCM, Stable Diffusion XL. FLUX.2 models accept up to 4 reference images (v0.16.0) for image-to-image generation, downscaled client-side to 512px.
+| Modality | Count |
+| --- | ---: |
+| Chat | 44 |
+| Image | 21 |
+| Video | 19 |
+| Text-to-speech (TTS) | 3 |
+| Speech-to-text (STT) | 4 |
+| Music | 1 |
+| Live voice (Flux) | 1 |
+| **Total** | **93** |
 
-**Video generation:** Google Veo 3.1 / 3.1 Fast, ByteDance Seedance 2.0 / 2.0 Fast / Mini, MiniMax Hailuo 2.3 / 2.3 Fast, RunwayML Gen-4.5, Alibaba HappyHorse 1.0 and 1.1 T2V / I2V plus Wan 2.7 I2V, PixVerse v6 / v5.6, Vidu Q3 Pro / Q3 Turbo, xAI Grok Imagine Video and Video 1.5. All route through Unified Billing and durable Cloudflare Workflows.
+#### Chat (44)
 
-**Music generation:** MiniMax Music 2.6 (Unified Billing, durable via Workflows).
+| Model id | Notes |
+| --- | --- |
+| `anthropic/claude-fable-5` | Anthropic; binding |
+| `anthropic/claude-sonnet-5` | Anthropic |
+| `anthropic/claude-opus-5` | Anthropic |
+| `anthropic/claude-opus-4-8` | Anthropic |
+| `anthropic/claude-opus-4-7` | Anthropic |
+| `anthropic/claude-opus-4-6` | Anthropic |
+| `anthropic/claude-sonnet-4-6` | Anthropic |
+| `anthropic/claude-haiku-4-5` | Anthropic |
+| `xai/grok-4.5` | xAI |
+| `xai/grok-4.3` | xAI |
+| `xai/grok-4.20-multi-agent-0309` | xAI multi-agent |
+| `xai/grok-4.20-0309-reasoning` | xAI reasoning |
+| `moonshotai/kimi-k3` | Moonshot UB |
+| `@cf/moonshotai/kimi-k2.6` | Workers AI |
+| `@cf/moonshotai/kimi-k2.7-code` | Workers AI, vision |
+| `@cf/openai/gpt-oss-120b` | Workers AI, reasoning |
+| `@cf/meta/llama-4-scout-17b-16e-instruct` | Workers AI, vision |
+| `@cf/google/gemma-4-26b-a4b-it` | Workers AI, vision |
+| `@cf/openai/gpt-oss-20b` | Workers AI |
+| `openai/gpt-5.5` | OpenAI UB |
+| `openai/gpt-5.5-pro` | OpenAI Responses |
+| `openai/gpt-5.6-sol` | OpenAI Responses |
+| `openai/gpt-5.6-terra` | OpenAI Responses |
+| `openai/gpt-5.6-luna` | OpenAI Responses |
+| `openai/gpt-5.4` | OpenAI UB |
+| `openai/gpt-5.4-mini` | OpenAI UB |
+| `openai/o4-mini` | OpenAI reasoning |
+| `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | Workers AI |
+| `@cf/meta/llama-3.2-11b-vision-instruct` | Workers AI, vision |
+| `@cf/meta/llama-3.2-3b-instruct` | Workers AI |
+| `@cf/qwen/qwen3-30b-a3b-fp8` | Workers AI |
+| `@cf/qwen/qwq-32b` | Workers AI, reasoning |
+| `@cf/qwen/qwen2.5-coder-32b-instruct` | Workers AI |
+| `@cf/deepseek-ai/deepseek-r1-distill-qwen-32b` | Workers AI |
+| `@cf/mistralai/mistral-small-3.1-24b-instruct` | Workers AI, vision |
+| `@cf/zai-org/glm-4.7-flash` | Workers AI |
+| `@cf/zai-org/glm-5.2` | Workers AI |
+| `@cf/nvidia/nemotron-3-120b-a12b` | Workers AI |
+| `@cf/aisingapore/gemma-sea-lion-v4-27b-it` | Workers AI |
+| `google/gemini-3.1-pro` | Google Gemini, binding |
+| `google/gemini-3.5-flash` | Google Gemini, binding |
+| `google/gemini-3.6-flash` | Google Gemini, binding |
+| `@cf/ibm-granite/granite-4.0-h-micro` | Workers AI |
+| `@cf/meta/llama-3.2-1b-instruct` | Workers AI |
 
-**Text-to-speech:** Aura-2 EN / ES, MeloTTS.
+#### Image (21)
 
-**Speech-to-text:** Whisper Large v3 Turbo / Whisper / Whisper Tiny EN and Deepgram Nova-3 (one-shot transcription), plus **Deepgram Flux** conversational/streaming STT with live turn detection over a WebSocket (v0.108.0).
+| Model id | Notes |
+| --- | --- |
+| `google/nano-banana-pro` | Google UB |
+| `google/nano-banana-2` | Google UB |
+| `google/nano-banana-2-lite` | Google UB |
+| `google/imagen-4` | Google UB |
+| `openai/gpt-image-1.5` | OpenAI UB; transparent PNG needs `OPENAI_API_KEY` |
+| `openai/gpt-image-2` | OpenAI UB; transparent PNG needs `OPENAI_API_KEY` |
+| `recraft/recraftv4` | Recraft UB |
+| `recraft/recraftv4-1` | Recraft UB |
+| `recraft/recraftv4-1-pro` | Recraft UB |
+| `xai/grok-imagine-image` | xAI UB |
+| `xai/grok-imagine-image-quality` | xAI UB |
+| `bytedance/seedream-5-pro` | ByteDance UB |
+| `bytedance/seedream-5-lite` | ByteDance UB |
+| `@cf/black-forest-labs/flux-2-klein-9b` | FLUX 2; up to 4 refs |
+| `@cf/black-forest-labs/flux-2-klein-4b` | FLUX 2; up to 4 refs |
+| `@cf/black-forest-labs/flux-2-dev` | FLUX 2 multi-reference |
+| `@cf/black-forest-labs/flux-1-schnell` | FLUX-1 fast |
+| `@cf/leonardo/lucid-origin` | Leonardo |
+| `@cf/leonardo/phoenix-1.0` | Leonardo |
+| `@cf/lykon/dreamshaper-8-lcm` | Fast SD |
+| `@cf/stabilityai/stable-diffusion-xl-base-1.0` | SDXL |
+
+#### Video (19)
+
+| Model id | Notes |
+| --- | --- |
+| `google/veo-3.1` | Workflow long-run |
+| `google/veo-3.1-fast` | Workflow long-run |
+| `bytedance/seedance-2.0` | Workflow long-run |
+| `bytedance/seedance-2.0-fast` | Workflow long-run |
+| `bytedance/seedance-2.0-mini` | Workflow long-run |
+| `minimax/hailuo-2.3` | i2v-required |
+| `minimax/hailuo-2.3-fast` | i2v-required |
+| `xai/grok-imagine-video` | ZDR upload_url |
+| `xai/grok-imagine-video-1.5-preview` | ZDR upload_url |
+| `runwayml/gen-4.5` | Workflow long-run |
+| `alibaba/hh1-t2v` | HappyHorse 1.0 T2V |
+| `alibaba/hh1-i2v` | HappyHorse 1.0 I2V |
+| `alibaba/hh1.1-t2v` | HappyHorse 1.1 T2V |
+| `alibaba/hh1.1-i2v` | HappyHorse 1.1 I2V |
+| `alibaba/wan-2.7-i2v` | Wan 2.7 I2V |
+| `pixverse/v6` | Workflow long-run |
+| `pixverse/v5.6` | Workflow long-run |
+| `vidu/q3-pro` | Workflow long-run |
+| `vidu/q3-turbo` | Workflow long-run |
+
+#### TTS (3)
+
+| Model id | Notes |
+| --- | --- |
+| `@cf/deepgram/aura-2-en` | English |
+| `@cf/deepgram/aura-2-es` | Spanish speakers |
+| `@cf/myshell-ai/melotts` | Multilingual |
+
+#### STT (4)
+
+| Model id | Notes |
+| --- | --- |
+| `@cf/openai/whisper-large-v3-turbo` | Best quality |
+| `@cf/openai/whisper` | General |
+| `@cf/openai/whisper-tiny-en` | Fast English |
+| `@cf/deepgram/nova-3` | Accurate batch |
+
+#### Music (1)
+
+| Model id | Notes |
+| --- | --- |
+| `minimax/music-2.6` | Workflow long-run |
+
+#### Live voice (1)
+
+| Model id | Notes |
+| --- | --- |
+| `@cf/deepgram/flux` | Streaming STT over WebSocket |
 
 **Voice chat: talk to any model, hear it reply (v0.118.0):** a mic button on any chat model starts a hands-free loop, your speech is transcribed by Flux, each finished turn is sent to the selected model through the normal chat path, and the reply is spoken back via Aura-2 TTS. Works with every chat model in the catalog; the conversation saves to history like any other, and the whole loop runs on Cloudflare (no third-party STT/TTS). See [Voice chat](#voice-chat).
 
