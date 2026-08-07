@@ -181,7 +181,14 @@ Add pure-function tests to `tests/`; add fetch-handler or binding tests to `test
 - Crew work as their own identity: the FIRST command in any op is the member's own login shell, `sudo -u <member> bash -lc '<ops>'` (own `$HOME`, own clone, own gh/CF creds); commits and PRs land under `skyphusion-<member>`, never Conrad's. Conrad's laptop commits author `Conrad Rockenhaus <conrad@skyphusion.org>`. Operating memory for this repo lives in its per-project memory; load it before acting.
 
 ## Release versioning
-- SemVer post-1.0: **MINOR** for new features, **PATCH** for fixes. Bump root `package.json` and `packages/create-prism/package.json` together; tag must match.
+- SemVer post-1.0: **MINOR** for new features, **PATCH** for fixes. Bump root `package.json`,
+  `packages/create-prism/package.json`, and the `VERSION` literal in `src/version.ts` together;
+  tag must match. **All three, every time.** `src/version.ts` is what the Worker advertises on
+  its unauthenticated health surfaces, so a release that misses it deploys code that reports
+  the previous version and makes "is the fix actually serving?" unanswerable from the wire.
+  `tests/version.test.ts` derives the expected value from `package.json` and fails the release
+  if the literal lags, so this is enforced rather than remembered; the entry here exists so the
+  procedure names it up front instead of a red CI run teaching it.
 - Commit subjects that ship a release end the subject with the version in parens, e.g. `feat(image): transparent PNG ... (v0.22.1)`.
 - Every release gets a new top-of-file entry in `CHANGELOG.md`: `## vX.Y.Z` heading, a one-line summary, prose explaining the why, and a `### Code` section listing every file touched (including the `package.json` X -> Y bump) ending with typecheck/test status. New bindings or schema changes are documented as copy-paste blocks in the entry so existing deployers can apply them by hand.
 - In-code version references: when a line of code or a comment is tied to a release, tag it `(vX.Y.Z)` so the catalog/config history stays traceable (this is the existing convention throughout `src/`).

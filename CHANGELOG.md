@@ -36,12 +36,15 @@ Patch release: the SPA constrains what an href it did not construct is allowed t
   level and cannot be evaluated without a DOM harness this project does not carry; each wiring
   assertion carries a positive control so a matcher that has stopped matching fails loudly. Includes
   the class guard over every interpolated href.
+- `src/version.ts` -- `VERSION` 1.0.1 -> 1.0.2, so the version on the wire moves with the
+  release rather than lagging it
+- `CLAUDE.md` -- the release procedure now names all three files a bump has to touch
 - `package.json` -- 1.0.1 -> 1.0.2
 - `packages/create-prism/package.json` -- 1.0.1 -> 1.0.2 (locked to the app SemVer)
 - `CHANGELOG.md` -- this entry
 
-No schema change, no new binding. `npm run typecheck` clean; `npm test` green at 355 passed across
-34 files. (fleet-chezmoi#1638)
+No schema change, no new binding. `npm run typecheck` clean; `npm test` green at 359 passed across
+35 files. (fleet-chezmoi#1638)
 
 ## v1.0.1
 
