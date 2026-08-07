@@ -12,15 +12,11 @@ Patch release: gateway credential resolution is now a single seam on every model
   locally, so that path cannot drift from the HTTP routes. Adds workers-suite coverage of the
   live-voice upgrade path with `STT_SESSION` bound as a real SQLite-backed Durable Object, mirroring
   `wrangler.example.toml`. (fleet-chezmoi#1611)
-- **RAG zero-join retrieval diagnostic is scoped to the requesting tenant.** `retrieveContext`
-  queries Vectorize without a metadata filter because tenant scope is enforced by the D1 join. The
-  zero-join branch now builds two strings instead of one: the operator diagnostic is unchanged and
-  still carries the id sample, which is what keeps a silent retrieval failure debuggable, while the
-  caller receives a statement about their own retrieval that carries nothing derived from the shared
-  index. Tests pin the exact branch before asserting on content, with controls proving the fixture
-  supplied the ids and that the operator diagnostic still contains them. (fleet-chezmoi#1608; the
-  correctness half is tracked separately in fleet-chezmoi#1636, pending the Vectorize metadata index
-  migration.)
+- **RAG zero-join retrieval diagnostic is scoped to the requesting tenant.** The zero-join branch
+  builds two strings: the operator diagnostic keeps its id sample, which is what keeps a silent
+  retrieval failure debuggable, and the caller receives a statement about their own retrieval only.
+  Tests pin the exact branch before asserting on content, with controls proving the fixture supplied
+  the ids and that the operator diagnostic still contains them. (fleet-chezmoi#1608)
 
 ### Docs
 
