@@ -1,3 +1,22 @@
+## v1.0.0
+
+### Added
+
+- **Stable 1.0 cut** of the Prism multimodal playground Worker, aligned with
+  Prism for iOS / Android 1.0.0 and prism-control-plane 1.0.0.
+
+### Included (from 0.175.x train)
+
+- Conversation **compact** / expand for long multi-turn context (v0.175.7).
+- Full catalog (chat, image, video, music, TTS/STT, voice chat).
+- RAG / projects / web search / BYOK carve-outs as documented in README.
+- `@skyphusion/create-prism` CLI version locked to the app SemVer (1.0.0).
+
+### Notes
+
+- Tag `v1.0.0` deploys production Worker (tag-gated) and publishes create-prism to npm.
+- Post-1.0 SemVer: MINOR for features, PATCH for fixes.
+
 ## v0.175.7
 
 ### Added
