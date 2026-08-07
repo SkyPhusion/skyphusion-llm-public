@@ -886,7 +886,7 @@ function renderRetrievedChunksHTML(chunks) {
             <span class="rc-file">${escapeHtml(c.title || "?")}</span>
             <span class="rc-meta">${escapeHtml(sourceLabel)}${score}</span>
           </summary>
-          <pre class="rc-text"><a href="${escapeHtml(c.url || "#")}" target="_blank" rel="noopener noreferrer">${escapeHtml(c.url || "")}</a>
+          <pre class="rc-text"><a href="${escapeHtml(window.safeHref(c.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(c.url || "")}</a>
 
 ${escapeHtml(c.snippet || "")}</pre>
         </details>`;
@@ -2392,6 +2392,17 @@ async function openGatewayModal() {
 
 function closeGatewayModal() {
   if (gatewayModal) gatewayModal.hidden = true;
+  // Drop the plaintext credentials out of the DOM on the way out, so no
+  // client-side copy of either secret outlives the modal that collected
+  // it. The clear lives HERE rather than at the call sites because every
+  // dismissal already routes through this function (save success, the
+  // cancel button, the backdrop, the X affordance, Escape): one clear on
+  // the single chokepoint holds by construction, where five clears hold
+  // only while all five stay correct. Adding a sixth dismissal path gets
+  // this for free; tests/public-url-safety.test.ts asserts the routing
+  // stays true so that stops being an assumption.
+  if (gatewayModalToken) gatewayModalToken.value = "";
+  if (gatewayModalCpKey) gatewayModalCpKey.value = "";
 }
 
 function showGatewayModalError(msg) {
