@@ -529,13 +529,24 @@ export async function runChat(request: Request, env: Env, model: ModelEntry, bod
 
 export async function runImage(request: Request, env: Env, model: ModelEntry, body: ChatRequest): Promise<Response> {
   const userEmail = await getUserEmail(request, env);
-  let aiCtx: AiContext | null = null;
+
+  // Resolve the caller's own gateway credentials before any inference runs.
+  //
+  // This is deliberately NOT conditional on which transport the model uses.
+  // Some @cf image models call the binding directly because the gateway cannot
+  // proxy their request or response shapes (see the bypass block further down);
+  // that is a TRANSPORT property of the model and must not decide
+  // AUTHORIZATION of the caller. Resolving here, unconditionally, makes this
+  // the single seam every branch below passes through, so a model that later
+  // needs some new transport cannot acquire a new way around the gate along
+  // with it.
+  //
+  // requireCfToken is the one thing that legitimately varies: proxied models
+  // additionally need a Cloudflare AI Gateway token, @cf models do not.
   const needsProxiedGateway = !!model.provider;
-  if (needsProxiedGateway) {
-    const ctxOrErr = await requireAiContext(env, userEmail, { requireCfToken: true });
-    if (ctxOrErr instanceof Response) return ctxOrErr;
-    aiCtx = ctxOrErr;
-  }
+  const ctxOrErr = await requireAiContext(env, userEmail, { requireCfToken: needsProxiedGateway });
+  if (ctxOrErr instanceof Response) return ctxOrErr;
+  const aiCtx: AiContext = ctxOrErr;
 
   // Image gen splits two ways. Proxied models (those with a `provider`:
   // nano-banana/google, gpt-image-1.5/openai, recraftv4/recraft) go through the
@@ -567,8 +578,8 @@ export async function runImage(request: Request, env: Env, model: ModelEntry, bo
         mime = gen.mime;
         logId = null; // direct OpenAI; no AI Gateway log
       } else {
-        const result = await aiRun(aiCtx!, model.id, buildProxiedImageParams(model.provider, body.user_input));
-        logId = aiLogId(aiCtx!);
+        const result = await aiRun(aiCtx, model.id, buildProxiedImageParams(model.provider, body.user_input));
+        logId = aiLogId(aiCtx);
 
         const failure = detectProviderFailure(result);
         if (failure) {
@@ -684,14 +695,14 @@ export async function runImage(request: Request, env: Env, model: ModelEntry, bo
       // populates ai_gateway_log_id for observability).
       let result: unknown;
       if (bypassGateway) {
+        // Transport bypass only. Credentials were resolved at the top of
+        // runImage, so this call is authorized on exactly the same terms as
+        // every other path here. What it skips is the gateway TRANSPORT, and
+        // with it the gateway's observability, which is why ai_gateway_log_id
+        // stays null on the persisted row below.
         type BypassRunFn = (model: string, params: unknown) => Promise<unknown>;
         result = await (env.AI as unknown as { run: BypassRunFn }).run(model.id, runParams);
       } else {
-        if (!aiCtx) {
-          const ctxOrErr = await requireAiContext(env, userEmail, { requireCfToken: false });
-          if (ctxOrErr instanceof Response) return ctxOrErr;
-          aiCtx = ctxOrErr;
-        }
         result = await aiRun(aiCtx, model.id, runParams);
         logId = aiLogId(aiCtx);
       }

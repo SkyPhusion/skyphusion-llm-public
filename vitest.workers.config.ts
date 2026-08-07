@@ -11,9 +11,14 @@ import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 // Bindings are Miniflare-local and fork-safe (no secrets, no network):
 //   - DB (D1) and R2 are real local Miniflare simulators; the schema is
 //     applied per test from schema.sql (see tests-integration/worker.test.ts).
-//   - AI, VEC, LONGRUN, STT_SESSION are inert JSON stubs. The routes under
-//     test never call them; the gateway 412 gate short-circuits before any
-//     env.AI.run, so no Workers AI / gateway network call is ever made.
+//   - AI, VEC and LONGRUN are inert JSON stubs. The routes under test never
+//     reach them: the gateway credential gate short-circuits before any
+//     env.AI.run, so no Workers AI / gateway network call is ever made. That
+//     is asserted rather than assumed -- see the inference-gate suites, which
+//     fail if any path dispatches before resolving credentials.
+//   - STT_SESSION is a real SQLite-backed Durable Object (class SttSession),
+//     mirroring wrangler.example.toml, so the live-voice upgrade path is
+//     reachable from a test at all.
 //   - ASSETS is a mock Fetcher returning 404, so the "no route matched"
 //     fallthrough is observable without shipping the public/ tree into the
 //     runtime.
@@ -32,7 +37,17 @@ export default defineConfig({
           AI: {},
           VEC: {},
           LONGRUN: {},
-          STT_SESSION: {},
+        },
+        // STT_SESSION is a REAL Durable Object here, not a JSON stub, mirroring
+        // the [[durable_objects.bindings]] block in wrangler.example.toml
+        // (class SttSession, SQLite-backed). The live-voice upgrade path runs
+        // inside the DO, so a stub binding made that path structurally
+        // untestable: nothing could reach the code under test. AI stays an
+        // inert stub, so a session that gets past the credential gate fails at
+        // the upstream open -- which is what makes the gate's refusal
+        // distinguishable from a dispatch failure.
+        durableObjects: {
+          STT_SESSION: { className: "SttSession", useSQLite: true },
         },
         serviceBindings: {
           ASSETS: () => new Response("assets-fallthrough", { status: 404 }),
