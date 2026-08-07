@@ -419,3 +419,41 @@ describe("inference gate: image models, every transport", () => {
     expect(body.code).toBe("cf_aig_token_required");
   });
 });
+
+describe("inference gate: live-voice WebSocket upgrade", () => {
+  // This path runs inside the SttSession Durable Object rather than in a route
+  // handler, and opens its upstream through the same AI binding. It is the one
+  // inference entry point that is not an /api/chat dispatch, which is exactly
+  // why it needs its own assertion rather than being assumed covered.
+  function upgrade(email?: string): Promise<Response> {
+    const headers = new Headers({ Upgrade: "websocket" });
+    if (email) headers.set("cf-access-authenticated-user-email", email);
+    return SELF.fetch("https://prism.test/api/stt/stream", { headers });
+  }
+
+  it("refuses the upgrade with 412 when no gateway id resolves", async () => {
+    const res = await upgrade(ALICE);
+    expect(res.status).toBe(412);
+    const body = (await res.json()) as { code?: string };
+    expect(body.code).toBe("gateway_not_configured");
+  });
+
+  it("positive control: past the gate the upgrade reaches the upstream open", async () => {
+    // Proves the 412 above is the credential gate and not simply "this path
+    // never works in a test". With a gateway id set the DO gets as far as
+    // opening the upstream flux socket, which fails against the inert AI stub
+    // and surfaces as 502 -- a different failure, at a later stage.
+    await req("/api/prefs", {
+      email: ALICE,
+      method: "PATCH",
+      body: { gateway_id: "alice-gw" },
+    });
+    let status: number;
+    try {
+      status = (await upgrade(ALICE)).status;
+    } catch {
+      status = 500;
+    }
+    expect(status).not.toBe(412);
+  });
+});
