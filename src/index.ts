@@ -24,6 +24,7 @@ import {
 } from "./auth";
 import { json } from "./routes/shared";
 import { handleHealthDeep } from "./routes/health";
+import { VERSION } from "./version";
 import { handlePrefsGet, handlePrefsPatch } from "./routes/prefs";
 import {
   handleChat,
@@ -74,8 +75,19 @@ export default {
 
     // Cheap liveness check. No binding access; sub-millisecond response.
     // Use for high-frequency uptime polling (Kuma at 60s interval, etc).
+    //
+    // Carries `version` so "which code is serving?" is answerable from an
+    // unauthenticated surface. A green deploy workflow proves the upload
+    // succeeded, not that the running Worker is the code you think it is, and
+    // until this field existed that question needed an account-scoped
+    // Cloudflare token. It is on the LIVENESS probe deliberately: the answer
+    // is about the deploy, not about the bindings, so it must not require
+    // /health/deep's D1, R2 and Vectorize round-trips, and it has to survive
+    // the 503 path. Value comes from src/version.ts, pinned to package.json by
+    // a test that DERIVES the expected string rather than transcribing it.
+    // See fleet-chezmoi#1641.
     if (url.pathname === "/health") {
-      return json({ ok: true, ts: Date.now() });
+      return json({ ok: true, ts: Date.now(), version: VERSION });
     }
 
     // Deep check: exercises D1, R2, Vectorize, and confirms the AI gateway

@@ -11,6 +11,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MODELS } from "../src/models";
+import { VERSION } from "../src/version";
 import schemaSql from "../schema.sql?raw";
 
 const ALICE = "alice@example.com";
@@ -118,6 +119,29 @@ describe("routing + 404 fallthrough", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
+  });
+
+  it("GET /health puts the serving version on the wire, unauthenticated", async () => {
+    // The deploy-verification surface (fleet-chezmoi#1641). This asserts the WIRE, which is a
+    // different failure mode from "the literal drifted from package.json" -- that one is owned by
+    // tests/version.test.ts, which reads package.json off disk. Breaking the literal reddens that
+    // file and leaves this one green; dropping this field reddens this one and leaves that file
+    // green, which is what makes them two assertions rather than one check wearing two names.
+    //
+    // Compared against VERSION rather than a typed literal, so this test cannot itself become a
+    // second copy of the version string to forget at release time.
+    const res = await req("/health");
+    const body = (await res.json()) as { version?: string };
+    expect(body.version).toBe(VERSION);
+  });
+
+  it("GET /health/deep carries the version alongside its checks", async () => {
+    // Readiness answers 503 for reasons unrelated to which build is running, so the build
+    // identifier has to be present on this payload whatever the status code says.
+    const res = await req("/health/deep");
+    const body = (await res.json()) as { version?: string; checks?: unknown };
+    expect(body.version).toBe(VERSION);
+    expect(body.checks).toBeDefined();
   });
 
   it("GET /api/models matches the models route", async () => {
