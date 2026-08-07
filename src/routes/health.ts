@@ -4,6 +4,7 @@
 
 import type { Env } from "../env";
 import { probeD1Schema } from "../health-schema";
+import { VERSION } from "../version";
 import { json } from "./shared";
 
 // ---------- Health checks ----------
@@ -97,8 +98,12 @@ export async function handleHealthDeep(env: Env): Promise<Response> {
   }
 
   const allOk = Object.values(checks).every((c) => c.ok);
+  // `version` rides on the readiness payload too, and it matters most when this
+  // endpoint is answering 503: a readiness probe goes red for reasons that have
+  // nothing to do with which build is running, and that is exactly the moment an
+  // operator needs to know which build it is.
   return json(
-    { ok: allOk, ts: Date.now(), checks },
+    { ok: allOk, ts: Date.now(), version: VERSION, checks },
     { status: allOk ? 200 : 503 }
   );
 }
