@@ -209,9 +209,19 @@ describe("wiring: the credential modal clears its inputs on every close path", (
 // accounted for; a new one fails here and forces whoever adds it to say
 // which category it is in, rather than inheriting escaping-only by default.
 describe("class guard: every interpolated href in app.js is accounted for", () => {
-  const hrefExprs = [...appSrc.matchAll(/href="\$\{([^}]*(?:\}[^"]*)*?)\}"/g)].map(
-    (m) => m[1],
-  );
+  // Deliberately a flat character class rather than a nested quantifier that
+  // would tolerate braces inside the expression. The permissive version of
+  // this pattern nests a quantified group inside another quantifier, which
+  // backtracks exponentially on a crafted input -- and a test-only matcher is
+  // still a matcher, so it gets the same treatment as shipped code.
+  //
+  // The narrower pattern costs nothing today: none of the four interpolations
+  // contains a brace. If one ever does, this captures a truncated expression
+  // that matches neither accounted-for category, so the guard fails LOUD and
+  // names the expression rather than silently waving the new sink through.
+  // That is the correct failure direction for a guard whose whole job is to
+  // refuse things it does not recognise.
+  const hrefExprs = [...appSrc.matchAll(/href="\$\{([^}]*)\}"/g)].map((m) => m[1]);
 
   it("the enumerator finds the hrefs it is supposed to (control)", () => {
     // A zero here means the matcher broke, not that the file is clean.
