@@ -17,6 +17,7 @@ import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
 import { buildTranscript, sanitizeCloseCode } from "./stt-util";
 import { resolveIdentity } from "./auth";
+import { requireAiContext } from "./routes/shared";
 
 export const FLUX_STT_MODEL = "@cf/deepgram/flux";
 
@@ -45,6 +46,21 @@ export class SttSession extends DurableObject<Env> {
     // src/index.ts. The session cookie rides the same-origin WS upgrade, so
     // resolveIdentity derives the owner the same way as every HTTP route.
     const userEmail = (await resolveIdentity(request, this.env)) ?? "anonymous";
+
+    // The live-voice socket is an inference path like any other, so it
+    // resolves the caller's own gateway credentials before opening anything
+    // upstream. This calls requireAiContext -- the same gate every HTTP
+    // inference route uses -- rather than restating the condition here, so
+    // this path cannot drift away from the others.
+    //
+    // The upstream flux socket does bypass the gateway TRANSPORT: the binding
+    // opens it with { websocket: true }, which the gateway cannot proxy. That
+    // is a transport property and carries no authorization meaning. An
+    // unconfigured caller is refused here, before any upstream session exists
+    // and before this DO records session metadata for it.
+    const ctxOrErr = await requireAiContext(this.env, userEmail, { requireCfToken: false });
+    if (ctxOrErr instanceof Response) return ctxOrErr;
+
     this.ctx.storage.sql.exec(
       `INSERT OR REPLACE INTO meta (k, v) VALUES ('user', ?), ('model', ?), ('started_at', ?)`,
       userEmail,

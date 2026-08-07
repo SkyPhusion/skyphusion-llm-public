@@ -327,3 +327,95 @@ describe("gateway 412 refusal path", () => {
     expect(status).not.toBe(412);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Inference gate coverage across transports (skyphusion-labs/fleet-chezmoi#1611)
+//
+// The 412 suite above proves the gate fires for one chat model. These assert it
+// holds for every model in the catalog that reaches an image inference path,
+// including the @cf models whose request/response shapes force the call to
+// bypass the AI Gateway transport.
+//
+// The population is DERIVED from MODELS rather than enumerated here. A hand
+// list would have to be extended by whoever adds the next model, which is
+// exactly the maintenance step that does not happen; deriving it means a model
+// landing later with some new transport is covered on the day it lands.
+// ---------------------------------------------------------------------------
+
+const IMAGE_MODELS = MODELS.filter((m) => m.type === "image");
+const CF_IMAGE_MODELS = IMAGE_MODELS.filter((m) => !m.provider);
+const PROXIED_IMAGE_MODELS = IMAGE_MODELS.filter((m) => !!m.provider);
+
+describe("inference gate: image models, every transport", () => {
+  it("harness control: the catalog yields both image transport classes", () => {
+    // If either filter stops matching the catalog these counts go to zero and
+    // the per-model assertions below vanish silently, passing vacuously. This
+    // asserts the population exists so an empty run reads as a harness failure
+    // rather than as a clean result.
+    expect(IMAGE_MODELS.length).toBeGreaterThan(0);
+    expect(CF_IMAGE_MODELS.length).toBeGreaterThan(0);
+    expect(PROXIED_IMAGE_MODELS.length).toBeGreaterThan(0);
+  });
+
+  for (const model of IMAGE_MODELS) {
+    it(`refuses ${model.id} with 412 when no gateway id resolves`, async () => {
+      const res = await req("/api/chat", {
+        email: ALICE,
+        method: "POST",
+        body: { model: model.id, user_input: "a cat" },
+      });
+      expect(res.status).toBe(412);
+      const body = (await res.json()) as { code?: string };
+      // Assert WHICH refusal fired. A bare "the request failed" is satisfied
+      // by the stubbed AI binding throwing on dispatch, which is the opposite
+      // of the gate doing its job: it would mean the request got past the gate
+      // and only failed because this harness has no real binding.
+      expect(body.code).toBe("gateway_not_configured");
+    });
+  }
+
+  it("positive control: a @cf image model dispatches once a gateway id is set", async () => {
+    // Proves the 412s above are a real refusal and not an always-on wall. Past
+    // the gate the inert AI stub makes dispatch fail; the only claim here is
+    // that the failure is no longer the gate.
+    const model = CF_IMAGE_MODELS[0]!;
+    await req("/api/prefs", {
+      email: ALICE,
+      method: "PATCH",
+      body: { gateway_id: "alice-gw" },
+    });
+    let status: number;
+    try {
+      status = (
+        await req("/api/chat", {
+          email: ALICE,
+          method: "POST",
+          body: { model: model.id, user_input: "a cat" },
+        })
+      ).status;
+    } catch {
+      status = 500;
+    }
+    expect(status).not.toBe(412);
+  });
+
+  it("proxied image models still require a CF token, and say so distinctly", async () => {
+    // The two refusals must stay distinguishable: a gateway id alone satisfies
+    // a @cf model (control above) but not a proxied one. If these ever collapse
+    // into one code, the control above stops proving anything about @cf models.
+    const model = PROXIED_IMAGE_MODELS[0]!;
+    await req("/api/prefs", {
+      email: BOB,
+      method: "PATCH",
+      body: { gateway_id: "bob-gw" },
+    });
+    const res = await req("/api/chat", {
+      email: BOB,
+      method: "POST",
+      body: { model: model.id, user_input: "a cat" },
+    });
+    expect(res.status).toBe(412);
+    const body = (await res.json()) as { code?: string };
+    expect(body.code).toBe("cf_aig_token_required");
+  });
+});
