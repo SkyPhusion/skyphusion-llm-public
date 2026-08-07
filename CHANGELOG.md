@@ -1,3 +1,45 @@
+## v1.0.1
+
+Patch release: gateway credential resolution is now a single seam on every model path, and the RAG zero-join diagnostic returned to a caller is scoped to that caller.
+
+### Fixed
+
+- **Gateway credentials resolve on every model path.** `runImage` resolves the caller's gateway
+  credentials once at the top of the function, unconditionally, and that resolution is the single
+  seam every branch below it passes through; `requireCfToken` remains the only thing that varies by
+  model class. The live-voice Durable Object opens its upstream session through the same binding and
+  resolves the same way, calling the shared `requireAiContext` rather than restating the condition
+  locally, so that path cannot drift from the HTTP routes. Adds workers-suite coverage of the
+  live-voice upgrade path with `STT_SESSION` bound as a real SQLite-backed Durable Object, mirroring
+  `wrangler.example.toml`. (fleet-chezmoi#1611)
+- **RAG zero-join retrieval diagnostic is scoped to the requesting tenant.** `retrieveContext`
+  queries Vectorize without a metadata filter because tenant scope is enforced by the D1 join. The
+  zero-join branch now builds two strings instead of one: the operator diagnostic is unchanged and
+  still carries the id sample, which is what keeps a silent retrieval failure debuggable, while the
+  caller receives a statement about their own retrieval that carries nothing derived from the shared
+  index. Tests pin the exact branch before asserting on content, with controls proving the fixture
+  supplied the ids and that the operator diagnostic still contains them. (fleet-chezmoi#1608; the
+  correctness half is tracked separately in fleet-chezmoi#1636, pending the Vectorize metadata index
+  migration.)
+
+### Docs
+
+- `CLAUDE.md` refreshed for the prism 1.0.0 estate (#164).
+
+### Code
+
+- `src/routes/chat.ts` -- unconditional credential resolution in `runImage`
+- `src/stt-session.ts` -- live-voice DO resolves via the shared `requireAiContext`
+- `src/routes/rag.ts` -- split operator diagnostic from the caller-facing one
+- `tests-integration/worker.test.ts` -- live-voice upgrade-path coverage
+- `tests/rag-retrieval-diagnostic.test.ts` -- branch-pinned assertions plus fixture controls
+- `vitest.workers.config.ts` -- bind `STT_SESSION` as a SQLite-backed DO
+- `package.json` -- 1.0.0 -> 1.0.1
+- `packages/create-prism/package.json` -- 1.0.0 -> 1.0.1 (locked to the app SemVer)
+- `CHANGELOG.md` -- this entry
+
+No schema change, no new binding. `npm run typecheck` clean; `npm test` green.
+
 ## v1.0.0
 
 ### Added
