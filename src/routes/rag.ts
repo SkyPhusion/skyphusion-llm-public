@@ -340,11 +340,33 @@ export async function retrieveContext(
     //   1. user_email mismatch (vectors written under a different identity).
     //   2. With projectId set: matches were real but none of the matched
     //      documents are members of the requested project.
+    // Two messages, deliberately carrying different things.
+    //
+    // The Vectorize query above is global: it has no metadata filter, because
+    // the tenant scope is the D1 join (see the note at the top of this
+    // section, which is why this works without a Vectorize metadata index).
+    // So `ids` holds whatever the shared index returned, and vector ids are
+    // minted as `${userEmail}:${docId}:${chunkIndex}`. On a deployment with
+    // more than one tenant, ids in that list can belong to somebody else --
+    // which is precisely the case this branch exists to report on.
+    //
+    // The operator diagnostic keeps them. It is what makes a silent retrieval
+    // failure debuggable, and it goes to a log the operator already owns.
     const idSample = ids.slice(0, 3).join(", ");
     const scope = projectId !== undefined ? ` project_id=${projectId},` : "";
-    const msg = `Vectorize returned ${matches.length} matches but D1 join returned 0. user_email='${userEmail}',${scope} sample vector_ids=[${idSample}]. Check whether vectors were upserted under a different user identity, or whether the project has any document members.`;
-    console.warn("retrieveContext:", msg);
-    return { chunks: [], error: msg };
+    console.warn(
+      "retrieveContext:",
+      `Vectorize returned ${matches.length} matches but D1 join returned 0. user_email='${userEmail}',${scope} sample vector_ids=[${idSample}]. Check whether vectors were upserted under a different user identity, or whether the project has any document members.`,
+    );
+
+    // The caller gets a true statement about their own retrieval and nothing
+    // derived from the shared index. Whatever is returned here is handed to
+    // the client verbatim as `retrieval_error` (src/routes/chat.ts), so this
+    // string is API output rather than a log line, and is written as such.
+    const clientMsg = projectId !== undefined
+      ? "No indexed documents in this project matched the query."
+      : "No indexed documents matched the query.";
+    return { chunks: [], error: clientMsg };
   }
 
   // 4) Merge scores back in, preserve Vectorize ordering. When projectId
