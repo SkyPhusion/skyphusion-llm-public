@@ -63,6 +63,8 @@ import {
   handleDiscordImport,
 } from "./routes/projects";
 import { handleArtifact } from "./routes/artifacts";
+import { handleCspReport } from "./routes/csp-report";
+import { buildCspReportOnly } from "./csp";
 
 // Durable Object + Workflow classes must stay exported from the main entry so
 // wrangler resolves each class_name against this module.
@@ -112,6 +114,16 @@ export default {
     }
     if (url.pathname === "/api/auth/logout" && request.method === "POST") {
       return handleLogout(request, env);
+    }
+
+    // CSP violation collector (fleet-chezmoi#1646). Sits above the gate
+    // deliberately: browsers post violation reports WITHOUT credentials, so a
+    // session-gated collector would collect nothing. That makes it an
+    // unauthenticated public write endpoint, and the handler is written for
+    // that: body cap with refusal past it, fixed bounded projection, per-IP
+    // rate limit with visible shedding, prune-on-write retention.
+    if (url.pathname === "/api/csp-report" && request.method === "POST") {
+      return handleCspReport(request, env);
     }
 
     // Public-mode gate: every other /api/* route requires a valid session.
@@ -277,7 +289,49 @@ export default {
       return handleArtifact(request, env, decodeURIComponent(a[1]));
     }
 
-    return env.ASSETS.fetch(request);
+    // ---- Security headers on the static surface (fleet-chezmoi#1646) ----
+    //
+    // SCOPE, stated so it is not mistaken for more than it is: these are
+    // applied to the ASSETS responses, which is where the HTML and every
+    // static file come from. API responses returned above do NOT carry them.
+    // For CSP that is correct, since a policy only governs the document that
+    // carries it. For HSTS it is a known and deliberate gap in phase one: a
+    // browser that has loaded the page already holds the header, and widening
+    // it to every route is a separate change to every response path.
+    //
+    // The three headers this deploy already carries (x-frame-options,
+    // referrer-policy, x-content-type-options) are NOT set here. They are
+    // applied at the edge by a zone Transform Rule for every host on the
+    // zone, measured directly in the zone config. Setting them here would be
+    // a duplicate CERTAINTY rather than a duplicate risk, and a duplicated
+    // x-frame-options is worse than either value alone because agents
+    // disagree about which wins. Bringing that rule under declared config is
+    // fleet-chezmoi#1626; duplicating a control is not declaring it.
+    const assetRes = await env.ASSETS.fetch(request);
+    const isHtml = (assetRes.headers.get("content-type") || "").includes("text/html");
+    const headers = new Headers(assetRes.headers);
+
+    // REPORT-ONLY. Nothing is blocked; violations are posted to the collector
+    // above. The policy is deliberately stricter than what the page is
+    // believed to need, so the exceptions are established by observation
+    // rather than by reading the source. Promotion to enforcing is gated on
+    // collector data plus Conrad's word, and is NOT part of this change.
+    if (isHtml) {
+      headers.set("content-security-policy-report-only", buildCspReportOnly());
+    }
+
+    // HSTS. Phase-one max-age is deliberately SHORT (1 day). A long max-age is
+    // cached by every client that sees it and cannot be recalled, so shipping
+    // six months on first rollout commits the estate to a promise nobody has
+    // observed holding yet. Ramping is a one-line change once it has. No
+    // preload, which is the genuinely irreversible one.
+    headers.set("strict-transport-security", "max-age=86400; includeSubDomains");
+
+    return new Response(assetRes.body, {
+      status: assetRes.status,
+      statusText: assetRes.statusText,
+      headers,
+    });
   },
 
 };

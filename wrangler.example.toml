@@ -54,6 +54,26 @@ index_name = "skyphusion-llm-vec"
 [assets]
 directory = "./public"
 binding = "ASSETS"
+# REQUIRED for the security headers to exist at all (fleet-chezmoi#1646).
+#
+# Workers Assets serves a matching static file WITHOUT invoking the Worker. So
+# with this line absent, `/` is answered entirely by the asset layer, the fetch
+# handler never runs for the HTML document, and the Content-Security-Policy and
+# HSTS headers it sets are dead code on exactly the responses that need them.
+#
+# That is not a theory: it was measured. Before this line, `curl -D - /` on a
+# local dev server returned the HTML with NO policy header; after it, the policy
+# is present, with a non-HTML asset checked as a control to confirm the document
+# policy is not being sprayed onto subresources.
+#
+# Scoped to the HTML documents ONLY rather than set to `true`. Every path listed
+# here stops being served from the asset fast path and costs a Worker
+# invocation, so the list is the two real documents plus the root.
+#
+# DEPLOYERS: wrangler.toml is gitignored and per-deployer, so this template
+# change does NOT reach a live deploy on its own. Copy this line into your own
+# wrangler.toml before deploying, or the CSP ships and silently never applies.
+run_worker_first = ["/", "/index.html", "/stt.html"]
 
 # Cloudflare Workflow for long-running Unified Billing video and music gen
 # (v0.12.0). env.AI.run for these models blocks until completion (30s-3min),

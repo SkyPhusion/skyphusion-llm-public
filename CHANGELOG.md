@@ -1,8 +1,42 @@
 ## v1.0.3
 
-Patch release: the account-deletion modal drops its password out of the DOM on every dismissal, and the credential-input class is now guarded rather than the three instances of it.
+Patch release: a report-only Content-Security-Policy with a working collector behind it, HSTS on the static surface, and the account-deletion modal dropping its password out of the DOM on every dismissal.
 
 ### Security
+
+- **Report-only Content-Security-Policy, with a collector proven to collect.** The Worker serves
+  `Content-Security-Policy-Report-Only` on HTML documents and posts violations to a new
+  `POST /api/csp-report`. The policy declares **`report-uri` only**: emitting `report-to` alongside
+  it was measured to suppress delivery entirely while the browser was still registering the
+  violations, so the only transport a report has been observed arriving over is the one that ships.
+  A test asserts `report-to` is absent, so re-adding it is a deliberate act owing an observed
+  arrival rather than a tidy-up. Nothing is blocked; this phase exists to find
+  out what a strict policy would break, from evidence rather than from a source read. The policy is
+  therefore **deliberately stricter than the page is believed to need** and does not pre-grant
+  `unsafe-inline`, `data:` or `blob:`, because an exception proven by a report is evidence and an
+  exception derived by reading `app.js` is a claim. Promotion to enforcing is out of scope here.
+- **The collector is written as an unauthenticated public write endpoint, because it has to be.**
+  Browsers post violation reports without credentials, so it is routed above the public-mode auth
+  gate and cannot be token-gated. Accordingly: the body is capped at 8 KiB and **refused** past the
+  cap rather than truncated (both the `content-length` claim and the actual bytes are checked, so a
+  lying header does not get through); only a fixed field set is persisted, never the body verbatim,
+  each field length-bounded; malformed input is refused rather than stored as an all-null row that
+  would be indistinguishable from a mangling collector; and reports are rate limited per client
+  with the shed count recorded, because a rate-limited estate and a quiet one otherwise produce an
+  identical empty table.
+- **Two privacy decisions in the collector.** `script-sample` is **never** persisted: it can carry
+  fragments of inline script from a page that handles a credential, and a violation is diagnosable
+  from the directive plus the blocked URI without it. And `document-uri` is stored with query and
+  fragment **stripped**, so the collector cannot become the first place a URL-borne value is
+  persisted. Both are asserted end to end against real D1, not just in the pure layer.
+- **Retention is an executed deletion, not an intention.** Rows older than 30 days are pruned on
+  write, which needs no cron, no new trigger and no new binding, and cannot drift out of sync with
+  the write path because it is the write path.
+- **HSTS on the static surface**, `max-age=86400; includeSubDomains`, no `preload`. The short
+  max-age is deliberate: a long one is cached by every client that sees it and cannot be recalled,
+  so committing six months before the header has been observed holding is the wrong direction to be
+  irreversible in. Ramping later is a one-line change.
+
 
 - **The account-deletion password input is cleared on every close path.** `closeAccountDeleteModal`
   now clears it, matching the two AI Gateway credential inputs. Established by enumeration rather
@@ -23,8 +57,43 @@ Patch release: the account-deletion modal drops its password out of the DOM on e
   demanding a clear there would fire on correct code, and a guard that refuses on healthy code is
   one people learn to switch off.
 
+### Verified against a real browser
+
+Phase one's whole purpose is observation, so it is accepted on an observed violation rather than on
+the header appearing in a response. Against the shipped code, with the table emptied first and the
+server liveness-checked on both sides of the browser step:
+
+```
+id | effective_directive | blocked_uri | document_uri           | line_number
+ 4 | style-src-attr      | inline      | http://127.0.0.1:8805/ | 47
+```
+
+That row is a **load-time violation from real page content** (the skip link's inline `style`
+attribute at `index.html:47`), not a synthesised POST, and it is the collector's first genuine
+finding: that attribute is the first thing that would break under an enforcing policy. Note also
+that the browser reported a document URI carrying a query string and the stored value has it
+**stripped**, so the privacy control is confirmed on a real report rather than only on fixtures.
+
+Getting there required splitting a two-state ambiguity a console read could not: a
+`securitypolicyviolation` listener in the page proved violations were being **registered** while the
+collector received **zero**, which isolated delivery as the failure and produced the `report-uri`
+decision above.
+
 ### Code
 
+- `src/csp.ts` -- new; policy string and the pure, bounded projection of a violation report
+- `src/routes/csp-report.ts` -- new; the collector (cap, refusal, rate limit, prune-on-write)
+- `src/index.ts` -- collector route above the auth gate; CSP + HSTS on the assets responses
+- `wrangler.example.toml` -- `run_worker_first` for the HTML documents. **Required**: Workers
+  Assets serves a matching static file WITHOUT invoking the Worker, so without this the fetch
+  handler never runs for `/` and the headers are dead code. Measured, not theorised.
+- `migrations/0004_csp_reports.sql` -- new; `csp_reports` plus an ISOLATED `csp_report_buckets`
+  rather than reusing `auth_attempts`, so a flood on an unauthenticated public endpoint cannot
+  contend with the login limiter
+- `schema.sql` -- the same DDL for fresh databases
+- `tests/csp.test.ts` -- new; 18 assertions on the policy, the projection and route ordering
+- `tests-integration/csp-report.test.ts` -- new; 12 assertions against the real handler and
+  real local D1
 - `public/app.js` -- `closeAccountDeleteModal` clears the password input
 - `tests/public-url-safety.test.ts` -- account-deletion close-path coverage plus the
   credential-input class guard; 21 assertions to 27
@@ -33,8 +102,28 @@ Patch release: the account-deletion modal drops its password out of the DOM on e
 - `packages/create-prism/package.json` -- 1.0.2 -> 1.0.3 (locked to the app SemVer)
 - `CHANGELOG.md` -- this entry
 
-No schema change, no new binding. `npm run typecheck` clean; `npm test` green at 365 passed across
-35 files. (fleet-chezmoi#1638)
+**Schema change, no new binding.** Existing deployers apply the delta by hand:
+
+```
+npx wrangler d1 execute skyphusion-llm --remote --file=migrations/0004_csp_reports.sql
+```
+
+**Deployers must also add `run_worker_first` to their own gitignored `wrangler.toml`**, copying
+the line from `wrangler.example.toml`. Without it the Worker is never invoked for the HTML
+document and the policy ships without ever applying.
+
+Operator read path for collected violations (there is deliberately no HTTP endpoint: this
+product has no admin role, so an authenticated read route would let any signed-up user read
+operator diagnostics from a credential-handling page):
+
+```
+npx wrangler d1 execute skyphusion-llm --remote \
+  --command "SELECT received_at, effective_directive, blocked_uri, document_uri
+             FROM csp_reports ORDER BY id DESC LIMIT 50;"
+```
+
+`npm run typecheck` clean; `npm test` green at 395 passed across 37 files.
+(fleet-chezmoi#1638, fleet-chezmoi#1646)
 
 ## v1.0.2
 
