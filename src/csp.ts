@@ -52,12 +52,34 @@ export interface CspReportRow {
 /**
  * The report-only policy served on HTML responses.
  *
- * `report-uri` is deprecated and is the one every current browser still
- * actually posts; `report-to` is the replacement and needs the companion
- * `Reporting-Endpoints` header. Both are emitted, because dropping the legacy
- * directive would silently lose reports from browsers that never implemented
- * the newer one, and a collector that misses the browsers most likely to be
- * running is not a collector.
+ * ONLY `report-uri`, DELIBERATELY, AND THIS WAS MEASURED RATHER THAN REASONED.
+ *
+ * The obvious shape is to emit both: `report-uri` for browsers that never
+ * implemented the replacement, plus `report-to` with a companion
+ * `Reporting-Endpoints` header for those that did. That is what this shipped
+ * first, and it delivered NOTHING.
+ *
+ * Measured, with the two states separated rather than inferred. A
+ * `securitypolicyviolation` listener in the page proved violations were being
+ * REGISTERED by the browser (two of them, `disposition: "report"`), while the
+ * collector received zero rows. So the violation was real and the DELIVERY was
+ * the failure. Removing `report-to` and the `Reporting-Endpoints` header,
+ * changing nothing else, made the identical violations arrive immediately --
+ * including a load-time one from the skip link's inline style attribute that no
+ * test had provoked.
+ *
+ * Conclusion held to what the evidence supports: emitting `report-to` alongside
+ * `report-uri` SUPPRESSED delivery in the observed environment. The likely
+ * reason is that the Reporting API declines to deliver from a non-secure origin
+ * and takes precedence once declared, but that is INFERRED -- an HTTPS run has
+ * not been done, and the mechanism is not what this decision rests on.
+ *
+ * What it rests on is narrower and sufficient: `report-uri` is the only
+ * transport this collector has ever been OBSERVED to receive a report over.
+ * Shipping a phase whose entire purpose is observation, over a transport whose
+ * delivery has only ever been seen to fail, is the defect this work exists to
+ * prevent. Re-adding `report-to` is a change that must be justified by watching
+ * a report arrive over it, not by noting that it is the modern directive.
  */
 export function buildCspReportOnly(reportPath = "/api/csp-report"): string {
   return [
@@ -73,14 +95,9 @@ export function buildCspReportOnly(reportPath = "/api/csp-report"): string {
     "form-action 'self'",
     "frame-ancestors 'self'",
     `report-uri ${reportPath}`,
-    "report-to csp-endpoint",
   ].join("; ");
 }
 
-/** Companion header naming the group `report-to` above refers to. */
-export function buildReportingEndpoints(reportPath = "/api/csp-report"): string {
-  return `csp-endpoint="${reportPath}"`;
-}
 
 function capped(v: unknown, max: number): string | null {
   if (typeof v !== "string") return null;

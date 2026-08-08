@@ -4,9 +4,13 @@ Patch release: a report-only Content-Security-Policy with a working collector be
 
 ### Security
 
-- **Report-only Content-Security-Policy, with a collector that actually collects.** The Worker
-  serves `Content-Security-Policy-Report-Only` plus `Reporting-Endpoints` on HTML documents and
-  posts violations to a new `POST /api/csp-report`. Nothing is blocked; this phase exists to find
+- **Report-only Content-Security-Policy, with a collector proven to collect.** The Worker serves
+  `Content-Security-Policy-Report-Only` on HTML documents and posts violations to a new
+  `POST /api/csp-report`. The policy declares **`report-uri` only**: emitting `report-to` alongside
+  it was measured to suppress delivery entirely while the browser was still registering the
+  violations, so the only transport a report has been observed arriving over is the one that ships.
+  A test asserts `report-to` is absent, so re-adding it is a deliberate act owing an observed
+  arrival rather than a tidy-up. Nothing is blocked; this phase exists to find
   out what a strict policy would break, from evidence rather than from a source read. The policy is
   therefore **deliberately stricter than the page is believed to need** and does not pre-grant
   `unsafe-inline`, `data:` or `blob:`, because an exception proven by a report is evidence and an
@@ -52,6 +56,28 @@ Patch release: a report-only Content-Security-Policy with a working collector be
   have no dismissal path to hang a clear on and their value must survive a failed login. A guard
   demanding a clear there would fire on correct code, and a guard that refuses on healthy code is
   one people learn to switch off.
+
+### Verified against a real browser
+
+Phase one's whole purpose is observation, so it is accepted on an observed violation rather than on
+the header appearing in a response. Against the shipped code, with the table emptied first and the
+server liveness-checked on both sides of the browser step:
+
+```
+id | effective_directive | blocked_uri | document_uri           | line_number
+ 4 | style-src-attr      | inline      | http://127.0.0.1:8805/ | 47
+```
+
+That row is a **load-time violation from real page content** (the skip link's inline `style`
+attribute at `index.html:47`), not a synthesised POST, and it is the collector's first genuine
+finding: that attribute is the first thing that would break under an enforcing policy. Note also
+that the browser reported a document URI carrying a query string and the stored value has it
+**stripped**, so the privacy control is confirmed on a real report rather than only on fixtures.
+
+Getting there required splitting a two-state ambiguity a console read could not: a
+`securitypolicyviolation` listener in the page proved violations were being **registered** while the
+collector received **zero**, which isolated delivery as the failure and produced the `report-uri`
+decision above.
 
 ### Code
 

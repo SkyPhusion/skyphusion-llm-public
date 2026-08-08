@@ -11,7 +11,6 @@ import {
   CSP_FIELD_CAPS,
   CSP_REPORT_MAX_BYTES,
   buildCspReportOnly,
-  buildReportingEndpoints,
   extractCspReport,
   stripUrlNoise,
 } from "../src/csp";
@@ -19,12 +18,18 @@ import {
 describe("report-only policy string", () => {
   const p = buildCspReportOnly();
 
-  it("names the collector in both the legacy and the current directive", () => {
-    // Dropping either loses reports from a whole class of browser, and a
-    // collector that misses the browsers most likely to be running is not one.
+  it("names the collector on the only transport a report has been seen to arrive over", () => {
     expect(p).toContain("report-uri /api/csp-report");
-    expect(p).toContain("report-to csp-endpoint");
-    expect(buildReportingEndpoints()).toBe('csp-endpoint="/api/csp-report"');
+  });
+
+  // REGRESSION GUARD, and it is the opposite of what it looks like. Adding
+  // `report-to` is the obvious modernisation and it is what this shipped first;
+  // measured, it SUPPRESSED delivery entirely while violations were still being
+  // registered by the browser. This assertion exists so that re-adding it is a
+  // deliberate act with a test to answer, rather than a tidy-up. Whoever
+  // re-adds it owes a report observed ARRIVING over that transport.
+  it("does not declare report-to, which was measured to suppress delivery", () => {
+    expect(p).not.toContain("report-to");
   });
 
   it("bounds where the page may send data, which is the directive that matters here", () => {

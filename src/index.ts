@@ -64,7 +64,7 @@ import {
 } from "./routes/projects";
 import { handleArtifact } from "./routes/artifacts";
 import { handleCspReport } from "./routes/csp-report";
-import { buildCspReportOnly, buildReportingEndpoints } from "./csp";
+import { buildCspReportOnly } from "./csp";
 
 // Durable Object + Workflow classes must stay exported from the main entry so
 // wrangler resolves each class_name against this module.
@@ -318,7 +318,6 @@ export default {
     // collector data plus Conrad's word, and is NOT part of this change.
     if (isHtml) {
       headers.set("content-security-policy-report-only", buildCspReportOnly());
-      headers.set("reporting-endpoints", buildReportingEndpoints());
     }
 
     // HSTS. Phase-one max-age is deliberately SHORT (1 day). A long max-age is
