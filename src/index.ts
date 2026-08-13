@@ -64,7 +64,7 @@ import {
 } from "./routes/projects";
 import { handleArtifact } from "./routes/artifacts";
 import { handleCspReport } from "./routes/csp-report";
-import { buildCspReportOnly } from "./csp";
+import { CSP_HEADER, buildCspPolicy } from "./csp";
 
 // Durable Object + Workflow classes must stay exported from the main entry so
 // wrangler resolves each class_name against this module.
@@ -311,13 +311,22 @@ export default {
     const isHtml = (assetRes.headers.get("content-type") || "").includes("text/html");
     const headers = new Headers(assetRes.headers);
 
-    // REPORT-ONLY. Nothing is blocked; violations are posted to the collector
-    // above. The policy is deliberately stricter than what the page is
-    // believed to need, so the exceptions are established by observation
-    // rather than by reading the source. Promotion to enforcing is gated on
-    // collector data plus Conrad's word, and is NOT part of this change.
+    // ENFORCING as of the fleet-chezmoi#1646 promotion. Violations are now
+    // BLOCKED, and still posted to the collector routed above, which is what
+    // keeps this observable: the stored `disposition` reads `enforce` rather
+    // than `report`, so a directive this policy gets wrong arrives as a row
+    // naming what broke instead of as a user noticing a dead feature.
+    //
+    // The two exceptions the policy carries (`data:` on img-src, `blob:` on
+    // media-src) were each established by an OBSERVED violation during the
+    // report-only phase, never by reading the frontend and deciding what
+    // looked necessary. See src/csp.ts for the provenance of each.
+    //
+    // Note the header NAME comes from the same module as the policy. Building
+    // an enforcing policy and emitting it under the report-only name is a
+    // decorative control that no test reading only one of the two can catch.
     if (isHtml) {
-      headers.set("content-security-policy-report-only", buildCspReportOnly());
+      headers.set(CSP_HEADER, buildCspPolicy());
     }
 
     // HSTS. Phase-one max-age is deliberately SHORT (1 day). A long max-age is
