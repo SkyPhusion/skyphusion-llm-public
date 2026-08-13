@@ -13,14 +13,17 @@
 //     pass identically whether the route sat above or below that gate, which
 //     makes it no assertion at all. The route-ordering property is asserted
 //     against the source in tests/csp.test.ts instead, with a control.
-//   - It CANNOT prove the report-only header lands on the HTML document,
-//     because ASSETS is mocked as a 404 Fetcher with no HTML. It CAN prove the
+//   - It CANNOT prove the policy header lands on the HTML document, because
+//     ASSETS is mocked as a 404 Fetcher with no HTML. It CAN prove the
 //     non-HTML branch, and the HTML branch is covered by the live browser
-//     acceptance recorded on the PR.
+//     acceptance recorded on the PR. Since the promotion to enforcing, that
+//     acceptance also has to show a violation actually BLOCKED, which no
+//     assertion in this pool can observe: a policy string is not a refusal.
 
 import { env, SELF } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import schemaSql from "../schema.sql?raw";
+import { CSP_HEADER, CSP_HEADER_REPORT_ONLY } from "../src/csp";
 
 const ORIGIN = "https://play.example.org";
 const REPORT_URL = `${ORIGIN}/api/csp-report`;
@@ -207,8 +210,23 @@ describe("security headers on the static surface", () => {
   // branch: a policy on a subresource governs nothing and is not emitted. The
   // HTML branch is covered by the live browser acceptance on the PR, because
   // this pool has no HTML to serve.
-  it("does not put a document policy on a non-HTML response", async () => {
+  //
+  // BOTH header names are checked, and that is the point rather than
+  // belt-and-braces. After the promotion, an assertion that looks only for the
+  // RETIRED report-only name passes by finding nothing, which is exactly what
+  // it would do if the enforcing header were being sprayed onto every
+  // subresource. A check whose subject no longer exists cannot fail.
+  it("does not put a document policy on a non-HTML response, under EITHER header name", async () => {
     const res = await SELF.fetch(`${ORIGIN}/some-static-path`);
-    expect(res.headers.get("content-security-policy-report-only")).toBeNull();
+    expect(res.headers.get(CSP_HEADER)).toBeNull();
+    expect(res.headers.get(CSP_HEADER_REPORT_ONLY)).toBeNull();
+  });
+
+  // Control for the two assertions above: this response really does carry
+  // headers, so the nulls are a measured absence rather than an empty response
+  // object that would report null for anything asked of it.
+  it("control: the same response carries a header we know is set", async () => {
+    const res = await SELF.fetch(`${ORIGIN}/some-static-path`);
+    expect(res.headers.get("strict-transport-security")).toBeTruthy();
   });
 });
