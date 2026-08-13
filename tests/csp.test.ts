@@ -232,3 +232,99 @@ describe("extractCspReport", () => {
     expect(CSP_REPORT_MAX_BYTES).toBeLessThanOrEqual(65536);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SOURCE GUARDS FOR THE INLINE-CSS SURFACES (fleet-chezmoi#1646).
+//
+// The report-only collector observed exactly one of these, because it can only
+// observe a page somebody loaded. These assert on the served files themselves,
+// so a re-introduced inline style is a red test rather than a violation nobody
+// happens to trip. Every matcher runs its positive control FIRST: a matcher
+// that has stopped matching returns zero, and zero reads exactly like clean.
+// ---------------------------------------------------------------------------
+describe("the served documents carry no inline CSS", () => {
+  const pub = (f: string) =>
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../public/", f), "utf8");
+
+  const INLINE_STYLE_ATTR = /<[a-z][^>]*\sstyle\s*=\s*["']/i;
+  const INLINE_STYLE_ELEM = /<style[\s>]/i;
+
+  it("control: both matchers fire on a subject known to contain the thing", () => {
+    expect(INLINE_STYLE_ATTR.test('<a class="x" style="left:-1px">y</a>')).toBe(true);
+    expect(INLINE_STYLE_ELEM.test("<head>\n  <style>\n  .a { color: red; }\n  </style>")).toBe(true);
+    // Negative half: neither may fire on the shape that must be allowed through.
+    expect(INLINE_STYLE_ATTR.test('<link rel="stylesheet" href="/stt.css">')).toBe(false);
+    expect(INLINE_STYLE_ELEM.test('<link rel="stylesheet" href="/styles.css">')).toBe(false);
+  });
+
+  // index.html:47 was the collector's first genuine finding:
+  //   style-src-attr | inline | line 47. The offscreen positioning moved to
+  // the `.seo-skip` rule in styles.css; the element and its behaviour are
+  // unchanged, and it is still the first focusable element in the body.
+  it("index.html has no inline style attribute", () => {
+    expect(INLINE_STYLE_ATTR.test(pub("index.html"))).toBe(false);
+  });
+
+  it("index.html has no inline <style> element", () => {
+    expect(INLINE_STYLE_ELEM.test(pub("index.html"))).toBe(false);
+  });
+
+  // stt.html carried a 19-rule inline <style> block. It never reported, because
+  // the STT document was serving with no policy header at all (see below), so
+  // an enforcing promotion would have taken the whole page layout with nothing
+  // in the collector having predicted it.
+  it("stt.html has no inline <style> element", () => {
+    expect(INLINE_STYLE_ELEM.test(pub("stt.html"))).toBe(false);
+  });
+
+  it("stt.html has no inline style attribute", () => {
+    expect(INLINE_STYLE_ATTR.test(pub("stt.html"))).toBe(false);
+  });
+
+  it("the rules stt.html used to inline are still served, from stt.css", () => {
+    const css = pub("stt.css");
+    expect(pub("stt.html")).toContain('<link rel="stylesheet" href="/stt.css">');
+    for (const sel of [".stt-layout", ".stt-controls", "#stt-start", ".stt-live", ".stt-debug"]) {
+      expect(css).toContain(sel);
+    }
+  });
+
+  it("the offscreen positioning the skip link lost is present in styles.css", () => {
+    const css = pub("styles.css");
+    expect(css).toMatch(/\.seo-skip\s*\{[^}]*position:\s*absolute/);
+    expect(css).toMatch(/\.seo-skip\s*\{[^}]*left:\s*-9999px/);
+    expect(pub("index.html")).toContain('class="seo-skip"');
+  });
+});
+
+// WHAT THIS GUARD CANNOT SEE, stated here rather than in a PR comment: it reads
+// the TEMPLATE. `wrangler.toml` is gitignored and per-deployer, so a green run
+// says the template is right and says nothing about any live deploy. Confirming
+// the header on the wire is a separate act and stays one.
+describe("run_worker_first names the paths the documents are actually served at", () => {
+  const toml = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "../wrangler.example.toml"),
+    "utf8",
+  );
+
+  it("control: the setting is present in the template at all", () => {
+    expect(toml).toContain("run_worker_first");
+  });
+
+  // MEASURED on a local dev server, not reasoned: `/stt.html` answers
+  // `307 -> /stt`, and `/stt` answered `200 text/html` with NO policy header
+  // while only the redirecting spelling was listed. Workers Assets drops the
+  // `.html` by default, so the extensionless path is the one a browser holds
+  // the document at. A listed path that only redirects fails silently: the page
+  // carries no policy, reports nothing, and an empty collector reads as clean.
+  it("covers the extensionless STT path, not only the redirecting one", () => {
+    const line = toml.split("\n").find((l) => l.trim().startsWith("run_worker_first"));
+    expect(line, "run_worker_first line not found in the template").toBeDefined();
+    expect(line).toContain('"/stt"');
+  });
+
+  it("still covers the root document", () => {
+    const line = toml.split("\n").find((l) => l.trim().startsWith("run_worker_first"));
+    expect(line).toContain('"/"');
+  });
+});
