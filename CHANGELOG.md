@@ -1,3 +1,38 @@
+## v1.0.4
+
+PATCH: promote the Content-Security-Policy to enforcing, after the report-only
+collector in v1.0.3 (never tagged; this tag ships that wave plus the promotion).
+
+### Security
+
+- **Enforcing CSP.** `#177` removed both inline-CSS surfaces (skip-link style and
+  the STT document) so the policy no longer needs `unsafe-inline` for style.
+  `#178` promotes `Content-Security-Policy-Report-Only` to `Content-Security-Policy`,
+  granting exactly two directives the collector proved. Violations are now blocked
+  and still posted to `POST /api/csp-report`.
+- Account-deletion password clear and the report-only collector / HSTS from the
+  untagged v1.0.3 pin ride this tag.
+
+### Also
+
+- RAG zero-join disclosure test made reachable (`#176`).
+- Cloudflare toolchain and npm-minor-patch (`#174`, `#175`), nanoid 3.3.18 (`#171`).
+
+### Code
+
+- `public/index.html`, `public/stt.html`, `public/stt.css`, `public/styles.css` --
+  no inline CSS
+- `src/csp.ts` -- enforcing header, two granted directives
+- `src/version.ts` -- 1.0.3 -> 1.0.4
+- `package.json` -- 1.0.3 -> 1.0.4
+- `packages/create-prism/package.json` -- 1.0.3 -> 1.0.4
+- `package-lock.json` -- lock version
+- `CHANGELOG.md` -- this entry
+
+Existing deployers who already applied `migrations/0004_csp_reports.sql` and
+`run_worker_first` from the v1.0.3 notes need no further schema change. Tag
+deploy runs `wrangler d1 migrations apply` and no-ops if 0004 is already recorded.
+
 ## v1.0.3
 
 Patch release: a report-only Content-Security-Policy with a working collector behind it, HSTS on the static surface, and the account-deletion modal dropping its password out of the DOM on every dismissal.
