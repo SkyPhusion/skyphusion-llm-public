@@ -68,12 +68,25 @@ binding = "ASSETS"
 #
 # Scoped to the HTML documents ONLY rather than set to `true`. Every path listed
 # here stops being served from the asset fast path and costs a Worker
-# invocation, so the list is the two real documents plus the root.
+# invocation, so the list is the real documents plus the root.
+#
+# `/stt` IS THE STT DOCUMENT AND `/stt.html` IS NOT. Measured on a local dev
+# server: `/stt.html` answers `307 -> /stt`, and `/stt` answers `200 text/html`
+# with NO policy header, because only the redirecting path was listed here.
+# Workers Assets `html_handling` drops the `.html` extension by default, so the
+# path a browser actually holds the document at is the extensionless one. The
+# same is true of `/index.html`, which `307`s to `/`; that one was covered only
+# because `/` was listed beside it. Both spellings are kept: a deployer who
+# turns `html_handling` off serves the `.html` path directly.
+#
+# The failure mode is the reason this comment is long: a listed path that only
+# redirects produces no error anywhere. The page simply never carries a policy,
+# never reports a violation, and an empty collector reads as a clean page.
 #
 # DEPLOYERS: wrangler.toml is gitignored and per-deployer, so this template
 # change does NOT reach a live deploy on its own. Copy this line into your own
 # wrangler.toml before deploying, or the CSP ships and silently never applies.
-run_worker_first = ["/", "/index.html", "/stt.html"]
+run_worker_first = ["/", "/index.html", "/stt", "/stt.html"]
 
 # Cloudflare Workflow for long-running Unified Billing video and music gen
 # (v0.12.0). env.AI.run for these models blocks until completion (30s-3min),

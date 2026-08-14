@@ -9,37 +9,78 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   CSP_FIELD_CAPS,
+  CSP_HEADER,
+  CSP_HEADER_REPORT_ONLY,
   CSP_REPORT_MAX_BYTES,
-  buildCspReportOnly,
+  buildCspPolicy,
   extractCspReport,
   stripUrlNoise,
 } from "../src/csp";
 
-describe("report-only policy string", () => {
-  const p = buildCspReportOnly();
+describe("the header name is the enforcing one", () => {
+  // The mode lives in the header NAME, not in the policy string, so a correct
+  // policy under the wrong name is a control that refuses nothing while every
+  // assertion about its directives keeps passing. Both names are asserted:
+  // the live one by value, the retired one by NOT being the live one, because
+  // "the report-only header is absent" is otherwise satisfied by a typo.
+  it("emits the enforcing header and not the report-only one", () => {
+    expect(CSP_HEADER).toBe("content-security-policy");
+    expect(CSP_HEADER).not.toBe(CSP_HEADER_REPORT_ONLY);
+  });
+
+  // Separate fact, and the one that actually decides the mode on the wire: the
+  // Worker must SET the constant rather than a literal typed a second time. A
+  // hand-typed header name in index.ts satisfies every assertion above while
+  // emitting whatever that literal happens to say.
+  it("the worker sets the header from the shared constant, not a literal", () => {
+    const src = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../src/index.ts"),
+      "utf8",
+    );
+    expect(src).toContain("headers.set(CSP_HEADER, buildCspPolicy())");
+    expect(src).not.toContain('"content-security-policy-report-only"');
+  });
+
+  // Control: the retired constant really does hold the report-only spelling,
+  // so the assertion above is comparing against the right thing rather than
+  // against a value that could never have matched.
+  it("control: the retired constant is the report-only spelling", () => {
+    expect(CSP_HEADER_REPORT_ONLY).toBe("content-security-policy-report-only");
+  });
+});
+
+describe("enforcing policy string", () => {
+  const p = buildCspPolicy();
 
   it("names the collector on the only transport a report has been seen to arrive over", () => {
     expect(p).toContain("report-uri /api/csp-report");
   });
 
+  // The collector is deliberately KEPT under enforcement. Dropping report-uri
+  // at promotion retires the instrument at the moment it starts describing
+  // real refusals, and the stored `disposition` is what separates an enforced
+  // block from a phase-one observation.
+  it("keeps reporting wired at whatever path the caller passes, not just the default", () => {
+    expect(buildCspPolicy("/elsewhere/collect")).toContain("report-uri /elsewhere/collect");
+    expect(buildCspPolicy("/elsewhere/collect")).not.toContain("report-uri /api/csp-report");
+  });
+
   // REGRESSION GUARD, and it is the opposite of what it looks like. Adding
   // `report-to` is the obvious modernisation and it is what this shipped first;
   // measured, it SUPPRESSED delivery entirely while violations were still being
-  // registered by the browser. This assertion exists so that re-adding it is a
-  // deliberate act with a test to answer, rather than a tidy-up. Whoever
-  // re-adds it owes a report observed ARRIVING over that transport.
+  // registered by the browser. Whoever re-adds it owes a report observed
+  // ARRIVING over that transport.
   it("does not declare report-to, which was measured to suppress delivery", () => {
     expect(p).not.toContain("report-to");
-  });
-
-  it("bounds where the page may send data, which is the directive that matters here", () => {
-    expect(p).toContain("connect-src 'self'");
   });
 
   it("carries the directives that make a strict baseline strict", () => {
     for (const d of [
       "default-src 'self'",
       "script-src 'self'",
+      "style-src 'self'",
+      "connect-src 'self'",
+      "font-src 'self'",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -48,15 +89,88 @@ describe("report-only policy string", () => {
       expect(p).toContain(d);
     }
   });
+});
 
-  // The deliberate omissions. Phase one ships STRICTER than the page is
-  // believed to need so the exceptions are established by observation rather
-  // than by reading app.js. If someone later adds these from a source read
-  // rather than from collector data, this test is where that decision surfaces.
-  it("does NOT pre-grant the exceptions the source suggests it will need", () => {
+describe("the two granted exceptions, and only those two", () => {
+  const p = buildCspPolicy();
+  // Each directive is read as its own segment. Substring matching cannot tell
+  // `img-src 'self' data:` from a `data:` that leaked into some other
+  // directive, and the whole value of this suite is that distinction.
+  const seg = (name: string): string => {
+    const found = p.split("; ").find((d) => d.startsWith(`${name} `));
+    if (!found) throw new Error(`directive ${name} absent from policy`);
+    return found;
+  };
+
+  it("control: the segment reader finds a directive that is definitely present", () => {
+    expect(seg("default-src")).toBe("default-src 'self'");
+  });
+
+  it("control: the segment reader throws rather than returning empty for an absent directive", () => {
+    expect(() => seg("child-src")).toThrow(/absent/);
+  });
+
+  // GRANT 1. Observed as `img-src | data` in the report-only phase: attachment
+  // thumbnails, video-frame previews, and the downscale path, all rendering a
+  // data: URL the page produced from a local file that is never uploaded.
+  it("grants data: to img-src, which was observed violating", () => {
+    expect(seg("img-src")).toBe("img-src 'self' data:");
+  });
+
+  // GRANT 2. Observed as `media-src | blob`: TTS playback wraps an Audio around
+  // a blob: URL minted from a same-origin response.
+  it("grants blob: to media-src, which was observed violating", () => {
+    expect(seg("media-src")).toBe("media-src 'self' blob:");
+  });
+
+  // THE SCOPE OF THE RULING. Exactly two directives widened. Each of these is
+  // asserted on its OWN directive rather than on the whole policy string, so a
+  // failure names which directive drifted instead of reporting that something
+  // somewhere contains "data:".
+  it("does not leak data: into script-src", () => {
+    expect(seg("script-src")).toBe("script-src 'self'");
+  });
+
+  it("does not leak blob: or data: into connect-src", () => {
+    expect(seg("connect-src")).toBe("connect-src 'self'");
+  });
+
+  it("does not widen style-src, whose violations were fixed in the page instead", () => {
+    expect(seg("style-src")).toBe("style-src 'self'");
+  });
+
+  it("does not widen font-src, which was measured to need nothing", () => {
+    expect(seg("font-src")).toBe("font-src 'self'");
+  });
+
+  it("keeps object-src at none", () => {
+    expect(seg("object-src")).toBe("object-src 'none'");
+  });
+
+  // The absences that make the grants a grant rather than a relaxation pass.
+  it("admits no inline or eval execution anywhere in the policy", () => {
     expect(p).not.toContain("unsafe-inline");
-    expect(p).not.toContain("data:");
-    expect(p).not.toContain("blob:");
+    expect(p).not.toContain("unsafe-eval");
+    expect(p).not.toContain("unsafe-hashes");
+    expect(p).not.toContain("*");
+  });
+
+  // Counting is the guard a later reader is least likely to think of: it goes
+  // red when a THIRD grant is added, even one this file never anticipated and
+  // therefore has no named assertion for.
+  it("exactly two directives carry a scheme source, and they are the two granted", () => {
+    const widened = p
+      .split("; ")
+      .filter((d) => /(^|\s)(data|blob|https?|ws|wss|filesystem|mediastream):/.test(d));
+    expect(widened.sort()).toEqual(["img-src 'self' data:", "media-src 'self' blob:"]);
+  });
+
+  it("control: the scheme matcher fires on a policy that carries a third grant", () => {
+    const widened = "default-src 'self'; img-src 'self' data:; font-src 'self' https:"
+      .split("; ")
+      .filter((d) => /(^|\s)(data|blob|https?|ws|wss|filesystem|mediastream):/.test(d));
+    expect(widened).toHaveLength(2);
+    expect(widened).toContain("font-src 'self' https:");
   });
 });
 
@@ -230,5 +344,101 @@ describe("extractCspReport", () => {
   it("exports a body cap that is bounded and non-trivial", () => {
     expect(CSP_REPORT_MAX_BYTES).toBeGreaterThan(1024);
     expect(CSP_REPORT_MAX_BYTES).toBeLessThanOrEqual(65536);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SOURCE GUARDS FOR THE INLINE-CSS SURFACES (fleet-chezmoi#1646).
+//
+// The report-only collector observed exactly one of these, because it can only
+// observe a page somebody loaded. These assert on the served files themselves,
+// so a re-introduced inline style is a red test rather than a violation nobody
+// happens to trip. Every matcher runs its positive control FIRST: a matcher
+// that has stopped matching returns zero, and zero reads exactly like clean.
+// ---------------------------------------------------------------------------
+describe("the served documents carry no inline CSS", () => {
+  const pub = (f: string) =>
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../public/", f), "utf8");
+
+  const INLINE_STYLE_ATTR = /<[a-z][^>]*\sstyle\s*=\s*["']/i;
+  const INLINE_STYLE_ELEM = /<style[\s>]/i;
+
+  it("control: both matchers fire on a subject known to contain the thing", () => {
+    expect(INLINE_STYLE_ATTR.test('<a class="x" style="left:-1px">y</a>')).toBe(true);
+    expect(INLINE_STYLE_ELEM.test("<head>\n  <style>\n  .a { color: red; }\n  </style>")).toBe(true);
+    // Negative half: neither may fire on the shape that must be allowed through.
+    expect(INLINE_STYLE_ATTR.test('<link rel="stylesheet" href="/stt.css">')).toBe(false);
+    expect(INLINE_STYLE_ELEM.test('<link rel="stylesheet" href="/styles.css">')).toBe(false);
+  });
+
+  // index.html:47 was the collector's first genuine finding:
+  //   style-src-attr | inline | line 47. The offscreen positioning moved to
+  // the `.seo-skip` rule in styles.css; the element and its behaviour are
+  // unchanged, and it is still the first focusable element in the body.
+  it("index.html has no inline style attribute", () => {
+    expect(INLINE_STYLE_ATTR.test(pub("index.html"))).toBe(false);
+  });
+
+  it("index.html has no inline <style> element", () => {
+    expect(INLINE_STYLE_ELEM.test(pub("index.html"))).toBe(false);
+  });
+
+  // stt.html carried a 19-rule inline <style> block. It never reported, because
+  // the STT document was serving with no policy header at all (see below), so
+  // an enforcing promotion would have taken the whole page layout with nothing
+  // in the collector having predicted it.
+  it("stt.html has no inline <style> element", () => {
+    expect(INLINE_STYLE_ELEM.test(pub("stt.html"))).toBe(false);
+  });
+
+  it("stt.html has no inline style attribute", () => {
+    expect(INLINE_STYLE_ATTR.test(pub("stt.html"))).toBe(false);
+  });
+
+  it("the rules stt.html used to inline are still served, from stt.css", () => {
+    const css = pub("stt.css");
+    expect(pub("stt.html")).toContain('<link rel="stylesheet" href="/stt.css">');
+    for (const sel of [".stt-layout", ".stt-controls", "#stt-start", ".stt-live", ".stt-debug"]) {
+      expect(css).toContain(sel);
+    }
+  });
+
+  it("the offscreen positioning the skip link lost is present in styles.css", () => {
+    const css = pub("styles.css");
+    expect(css).toMatch(/\.seo-skip\s*\{[^}]*position:\s*absolute/);
+    expect(css).toMatch(/\.seo-skip\s*\{[^}]*left:\s*-9999px/);
+    expect(pub("index.html")).toContain('class="seo-skip"');
+  });
+});
+
+// WHAT THIS GUARD CANNOT SEE, stated here rather than in a PR comment: it reads
+// the TEMPLATE. `wrangler.toml` is gitignored and per-deployer, so a green run
+// says the template is right and says nothing about any live deploy. Confirming
+// the header on the wire is a separate act and stays one.
+describe("run_worker_first names the paths the documents are actually served at", () => {
+  const toml = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "../wrangler.example.toml"),
+    "utf8",
+  );
+
+  it("control: the setting is present in the template at all", () => {
+    expect(toml).toContain("run_worker_first");
+  });
+
+  // MEASURED on a local dev server, not reasoned: `/stt.html` answers
+  // `307 -> /stt`, and `/stt` answered `200 text/html` with NO policy header
+  // while only the redirecting spelling was listed. Workers Assets drops the
+  // `.html` by default, so the extensionless path is the one a browser holds
+  // the document at. A listed path that only redirects fails silently: the page
+  // carries no policy, reports nothing, and an empty collector reads as clean.
+  it("covers the extensionless STT path, not only the redirecting one", () => {
+    const line = toml.split("\n").find((l) => l.trim().startsWith("run_worker_first"));
+    expect(line, "run_worker_first line not found in the template").toBeDefined();
+    expect(line).toContain('"/stt"');
+  });
+
+  it("still covers the root document", () => {
+    const line = toml.split("\n").find((l) => l.trim().startsWith("run_worker_first"));
+    expect(line).toContain('"/"');
   });
 });

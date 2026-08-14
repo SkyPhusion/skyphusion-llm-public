@@ -1,0 +1,25 @@
+/* Conversational STT page chrome. Loaded by stt.html alongside styles.css.
+   These rules lived in an inline <style> block in stt.html until fc#1646.
+   An enforcing `style-src 'self'` blocks an inline <style> element, which
+   would have taken the entire layout of this page; an external sheet needs
+   no policy exception. Rules are unchanged, only relocated and dedented. */
+
+.stt-layout { max-width: 820px; margin: 0 auto; padding: 1rem; }
+.stt-controls { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; }
+#stt-start { font-size: 1rem; padding: 0.6rem 1.4rem; border-radius: 999px; cursor: pointer; }
+#stt-start.is-live { background: #b3122c; color: #fff; }
+.stt-status { opacity: 0.8; font-size: 0.9rem; }
+.stt-live { min-height: 3.5rem; font-size: 1.25rem; line-height: 1.5; padding: 0.75rem 1rem;
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; margin-bottom: 1rem; }
+.stt-live-interim { opacity: 0.55; font-style: italic; }
+.stt-turns { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.5rem; }
+.stt-turn { padding: 0.5rem 0.75rem; border-radius: 8px; background: rgba(255,255,255,0.05); }
+.stt-meta { font-size: 0.78rem; opacity: 0.6; }
+.stt-debug { font-family: ui-monospace, monospace; font-size: 0.72rem; white-space: pre-wrap;
+             max-height: 220px; overflow-y: auto; background: rgba(0,0,0,0.25); padding: 0.5rem;
+             border-radius: 8px; }
+.stt-debug-row { padding: 1px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+summary { cursor: pointer; opacity: 0.8; }
+.stt-page-header { margin-bottom: 0.5rem; }
+.stt-back { font-size: 0.85rem; opacity: 0.7; text-decoration: none; }
+.stt-back:hover { opacity: 1; }

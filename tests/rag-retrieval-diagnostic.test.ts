@@ -74,15 +74,24 @@ describe("retrieveContext zero-join diagnostic", () => {
 
     expect(chunks).toEqual([]);
 
-    // Pin the exact branch. Without this the assertion below passes vacuously
-    // on any earlier failure path ("embed failed: ...", "vectorize query
-    // failed: ...") -- all of which are also free of foreign identities, and
-    // none of which are the case under test.
-    expect(error).toBe("No indexed documents matched the query.");
-
+    // ORDER IS LOAD-BEARING. Do not swap these two blocks.
+    //
+    // The disclosure assertion runs FIRST so that it is the assertion that
+    // fires when the defect is present. With the pin first, driving the
+    // pre-fix code (888e6bb reversed) reddened this test on the pin's
+    // `toBe` line and short-circuited, so the loop below never executed:
+    // the suite detected the defect, but the assertion that names it had
+    // never been shown capable of failing.
     for (const identity of FOREIGN_IDENTITIES) {
       expect(error).not.toContain(identity);
     }
+
+    // Pin the exact branch SECOND. This is the anti-vacuity control: on any
+    // earlier failure path ("embed failed: ...", "vectorize query failed:
+    // ...") the loop above passes for free, because those strings are also
+    // free of foreign identities and are not the case under test. Running it
+    // after preserves that guarantee while leaving the loop reachable.
+    expect(error).toBe("No indexed documents matched the query.");
 
     // Control: the harness really did feed foreign ids in, so the absence
     // above is a redaction rather than an empty input.
@@ -110,10 +119,13 @@ describe("retrieveContext zero-join diagnostic", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { error } = await retrieveContext(fakeEnv(), CALLER, "quarterly revenue", 5, 42);
 
-    expect(error).toBe("No indexed documents in this project matched the query.");
+    // Same ordering rule as above: disclosure assertion first so it is
+    // reachable under the defect, branch pin second as the anti-vacuity
+    // control.
     for (const identity of FOREIGN_IDENTITIES) {
       expect(error).not.toContain(identity);
     }
+    expect(error).toBe("No indexed documents in this project matched the query.");
     expect(warn).toHaveBeenCalled();
   });
 
